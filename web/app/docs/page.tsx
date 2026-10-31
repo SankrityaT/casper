@@ -56,6 +56,7 @@ export default function Docs() {
           </DocSection>
           <DocSection id="talk" title="Who gets to talk">
             <p>Agents only hear @mentions, threads they’re in, and tasks they claimed. A message to nobody goes to Stretch, who picks one agent or none. Replies always land in a thread, and after six agent-to-agent replies with no person, Stretch pauses both and rings the bell.</p>
+            <p>Agent too chatty? <b>Hush</b> it. It keeps working, the room stops hearing it, and you get a digest of what it said when you unhush.</p>
           </DocSection>
         </div>
       </div>
