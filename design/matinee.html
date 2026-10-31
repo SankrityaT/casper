@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Casper · Midnight Matinee</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Archivo:wght@400;500;600;700&family=Bungee&family=Rubik:wght@400;500;600;700&family=Lilita+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0d0b09; --ink-2:#16130f; --ink-3:#201b15;
+    --paper:#efe6d2; --paper-2:#cdbfa3; --paper-3:#8f8470;
+    --moon:#f5d76e; --ember:#f5a94e; --ecto:#9df27a; --signal:#ff5a3c;
+    --line:rgba(239,230,210,.1);
+    /* type set 1 (default): Poster */
+    --display:"Big Shoulders Display",sans-serif; --dw:900; --dls:.01em; --dcase:uppercase; --dsize:1;
+    --body:Archivo,sans-serif;
+  }
+  body.t2{--display:Bungee,sans-serif;--dw:400;--dls:0;--dcase:uppercase;--dsize:.78;--body:Rubik,sans-serif}
+  body.t3{--display:"Lilita One",sans-serif;--dw:400;--dls:.005em;--dcase:none;--dsize:.92;--body:Nunito,sans-serif}
+  html,body{margin:0}
+  body.standalone{background:#060504;padding:40px 20px}
+  .wrap{max-width:1100px;margin:0 auto;display:flex;flex-direction:column;gap:20px;color:var(--paper);font-family:var(--body)}
+  .sec{background:var(--ink);border-radius:22px;padding:24px;position:relative;overflow:hidden;border:1px solid var(--line)}
+  .grain{position:absolute;inset:0;pointer-events:none;opacity:.08;mix-blend-mode:screen;z-index:5;
+     background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");animation:grain .5s steps(2) infinite}
+  @keyframes grain{50%{transform:translate(-8px,6px)}}
+  .kicker{font:600 14px var(--body);color:var(--paper-3)}
+  h2{font-family:var(--display);font-weight:var(--dw);text-transform:var(--dcase);letter-spacing:var(--dls);font-size:calc(46px*var(--dsize));line-height:.95;margin:6px 0 10px}
+  p.lede{font-size:16px;line-height:1.55;color:var(--paper-2);margin:0;max-width:62ch}
+
+  /* ---------- poster ---------- */
+  .poster{position:relative;height:560px;border-radius:16px;overflow:hidden;margin-top:18px;
+    background:linear-gradient(180deg,#0f0d0a 0%,#1d1812 40%,#3a2f20 70%,#4d3e29 80%,#14110d 100%)}
+  .poster .title{position:absolute;top:26px;left:0;right:0;text-align:center;z-index:3}
+  .poster .title .t{font-family:var(--display);font-weight:var(--dw);text-transform:var(--dcase);letter-spacing:var(--dls);font-size:calc(104px*var(--dsize));line-height:.85;color:var(--paper);text-shadow:0 0 30px rgba(245,215,110,.25),0 4px 0 #000}
+  .poster .title .s{font:700 15px var(--body);letter-spacing:.32em;text-transform:uppercase;color:var(--moon);margin-top:10px}
+  .moon{position:absolute;left:50%;top:150px;width:330px;height:330px;margin-left:-165px;border-radius:50%;
+    background:radial-gradient(circle at 42% 38%,#fbf2dc,#e6d6ae 55%,#c9b68a 80%,#b19e74);box-shadow:0 0 120px rgba(245,215,170,.28)}
+  .moon::after{content:"";position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 30% 60%,rgba(150,130,90,.25) 0 9%,transparent 10%),radial-gradient(circle at 64% 30%,rgba(150,130,90,.2) 0 6%,transparent 7%),radial-gradient(circle at 70% 70%,rgba(150,130,90,.18) 0 12%,transparent 13%)}
+  .skyline{position:absolute;left:0;right:0;bottom:92px;height:70px;z-index:1;opacity:.95}
+  .lineup{position:absolute;left:0;right:0;bottom:96px;height:190px;z-index:2}
+  .ag{position:absolute;bottom:0;transform:translateX(-50%);width:var(--w,120px);height:var(--w,120px)}
+  .ag svg{width:100%;height:100%;overflow:visible;filter:drop-shadow(0 0 1px rgba(239,230,210,.75)) drop-shadow(0 0 16px rgba(239,230,210,.18))}
+  .ag .sway{transform-origin:50% 100%;animation:sway 4.4s ease-in-out infinite;animation-delay:var(--d,0s)}
+  @keyframes sway{0%,100%{transform:rotate(-1.6deg) translateY(0)}50%{transform:rotate(1.6deg) translateY(-4px)}}
+  .ag.hover .sway{animation:hover 3.2s ease-in-out infinite;animation-delay:var(--d,0s)}
+  @keyframes hover{0%,100%{transform:translateY(0) rotate(-2deg)}50%{transform:translateY(-12px) rotate(2deg)}}
+  .fog{position:absolute;left:-20%;right:-20%;bottom:70px;height:120px;z-index:3;pointer-events:none;
+    background:radial-gradient(40% 60% at 20% 70%,rgba(239,230,210,.16),transparent 70%),radial-gradient(35% 55% at 60% 80%,rgba(239,230,210,.14),transparent 70%),radial-gradient(30% 50% at 90% 60%,rgba(239,230,210,.12),transparent 70%);
+    filter:blur(6px);animation:fog 14s ease-in-out infinite alternate}
+  .fog.f2{bottom:60px;animation-duration:19s;animation-direction:alternate-reverse;opacity:.8}
+  @keyframes fog{to{transform:translateX(8%)}}
+  .billing{position:absolute;left:0;right:0;bottom:0;height:92px;z-index:4;background:linear-gradient(180deg,transparent,#0d0b09 30%);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding-bottom:16px;gap:6px}
+  .billing .names{font-family:var(--display);font-weight:var(--dw);text-transform:uppercase;letter-spacing:.06em;font-size:calc(22px*var(--dsize));color:var(--paper)}
+  .billing .credits{font:500 13px var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--paper-3);text-align:center;padding:0 16px}
+  .billing .credits b{color:var(--moon);font-weight:700}
+  svg.stream{position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none;overflow:visible}
+  .note{position:absolute;z-index:4;transform:translate(-50%,-130%);font:600 13px var(--body);background:var(--paper);color:var(--ink);padding:7px 12px;border-radius:3px;white-space:nowrap;box-shadow:0 0 22px rgba(245,169,78,.55);opacity:0;pointer-events:none}
+  .note small{font-weight:500;color:#6d6252;margin-left:6px}
+  .nametag{position:absolute;bottom:-26px;left:50%;transform:translateX(-50%);font:700 13px var(--body);color:var(--paper);white-space:nowrap;text-shadow:0 1px 8px #000;z-index:5}
+
+  /* glows */
+  .glow{filter:drop-shadow(0 0 3px var(--moon)) drop-shadow(0 0 9px var(--ember))}
+  .eco{filter:drop-shadow(0 0 3px var(--ecto)) drop-shadow(0 0 8px var(--ecto))}
+  .sig{filter:drop-shadow(0 0 3px var(--signal)) drop-shadow(0 0 7px var(--signal))}
+  .blink{animation:blink 4.6s infinite;transform-box:fill-box;transform-origin:center;animation-delay:var(--bd,0s)}
+  @keyframes blink{0%,93%,100%{transform:scaleY(1)}95.5%{transform:scaleY(.08)}}
+  .led{animation:led 1.2s steps(1) infinite}
+  .led.l2{animation-delay:.4s}.led.l3{animation-delay:.8s}
+  @keyframes led{0%,60%{opacity:1}61%,100%{opacity:.25}}
+  .flame{transform-box:fill-box;transform-origin:50% 100%;animation:flick .16s ease-in-out infinite alternate}
+  @keyframes flick{to{transform:scale(.9,1.1) skewX(4deg)}}
+  .wing-l{transform-box:fill-box;transform-origin:100% 50%;animation:flapL .55s ease-in-out infinite alternate}
+  .wing-r{transform-box:fill-box;transform-origin:0% 50%;animation:flapR .55s ease-in-out infinite alternate}
+  @keyframes flapL{to{transform:rotate(12deg) scaleY(.88)}}
+  @keyframes flapR{to{transform:rotate(-12deg) scaleY(.88)}}
+  .wave{transform-box:fill-box;transform-origin:0% 100%;animation:wave 1.4s ease-in-out infinite}
+  @keyframes wave{0%,100%{transform:rotate(0)}50%{transform:rotate(-14deg)}}
+
+  /* ---------- type picker ---------- */
+  .types{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:18px}
+  .type{background:var(--ink-2);border:1px solid var(--line);border-radius:14px;padding:16px;cursor:pointer;transition:border-color .16s,transform .2s}
+  .type:hover{transform:translateY(-2px)}
+  .type.on{border-color:var(--moon);box-shadow:0 0 0 1px var(--moon) inset}
+  .type .big{font-size:44px;line-height:.9;color:var(--paper)}
+  .type .sub{font-size:15px;line-height:1.45;color:var(--paper-2);margin-top:8px}
+  .type .meta{font:500 13px Archivo,sans-serif;color:var(--paper-3);margin-top:12px}
+  .type .meta b{color:var(--paper);font-weight:600}
+
+  /* ---------- cast ---------- */
+  .cast{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:18px}
+  .card{background:var(--ink-2);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:2px}
+  .card .stage{height:140px;border-radius:10px;position:relative;margin-bottom:8px;overflow:hidden;
+    background:radial-gradient(60% 75% at 50% 80%,#e6d6ae 0%,#c9b68a 38%,#3a2f20 39%,#16130f 75%)}
+  .card .stage .ag{left:50%;bottom:6px;--w:118px}
+  .card b{font-family:var(--display);font-weight:var(--dw);text-transform:var(--dcase);letter-spacing:var(--dls);font-size:calc(28px*var(--dsize));line-height:1}
+  .card .prop{font:600 13px var(--body);color:var(--moon);margin-top:4px}
+  .card .role{font-size:14px;line-height:1.45;color:var(--paper-2);margin-top:2px}
+  .note-ip{font-size:13px;color:var(--paper-3);margin-top:14px;line-height:1.5}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <section class="sec">
+    <div class="grain"></div>
+    <div class="kicker">Direction B, Midnight Matinee. Now showing.</div>
+    <h2>They're already in the room.</h2>
+    <p class="lede">The whole product is styled like an 80s ghost movie poster. The team of agents stands in the fog under a full moon, each with their own gear. When one agent messages another, a crackling stream carries the note across. Pick a type set below and the whole page switches.</p>
+    <div class="poster" id="poster">
+      <div class="title"><div class="t">Casper</div><div class="s">Your team. Their agents. One room.</div></div>
+      <div class="moon"></div>
+      <svg class="skyline" viewBox="0 0 1000 70" preserveAspectRatio="none"><path fill="#0d0b09" d="M0 70 V44 h40 v-14 h24 v14 h30 V20 h18 v-8 h10 v8 h16 v50 h20 V36 h34 v-10 h14 v10 h22 v34 h26 V28 l18-16 l18 16 v42 h30 V40 h44 V18 h12 v-6 h6 v6 h12 v58 h28 V34 h36 v36 h22 V24 h16 l10-12 l10 12 h16 v46 h26 V42 h40 v-8 h20 v36 h24 V30 h32 v40 h20 V16 h8 v-6 h4 v6 h8 v54 h30 V38 h44 v32 h26 V26 h20 v44 h30 V44 h36 v26 Z"/></svg>
+      <div class="lineup" id="lineup"></div>
+      <svg class="stream" id="stream"><path id="bolt" fill="none" stroke="#f5a94e" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" opacity="0" style="filter:drop-shadow(0 0 4px #f5d76e) drop-shadow(0 0 12px #f5a94e)"/><path id="bolt2" fill="none" stroke="#fff4c8" stroke-width="1" opacity="0"/></svg>
+      <div class="note" id="note"></div>
+      <div class="fog"></div><div class="fog f2"></div>
+      <div class="billing">
+        <div class="names">Casper · Jack · Batty · Juice · Luna · Wick · Salem</div>
+        <div class="credits">Built on <b>Durable Actors</b> by Terse · Messages by <b>Agent Relay</b> · Live VMs by boat.dev</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="grain"></div>
+    <div class="kicker">Type, pick one</div>
+    <h2>Three ways to set the title.</h2>
+    <p class="lede">The serif is gone. Each set pairs a poster face for titles with a plain, readable face for the app. Click one and the whole page switches to it.</p>
+    <div class="types">
+      <div class="type on" data-t="t1" style="font-family:Archivo,sans-serif">
+        <div class="big" style="font-family:'Big Shoulders Display';font-weight:900;text-transform:uppercase">Casper</div>
+        <div class="sub">Tall, heavy, condensed. The 80s movie poster and its billing block.</div>
+        <div class="meta"><b>Poster.</b> Big Shoulders Display + Archivo</div>
+      </div>
+      <div class="type" data-t="t2" style="font-family:Rubik,sans-serif">
+        <div class="big" style="font-family:Bungee;font-size:36px">Casper</div>
+        <div class="sub">A cinema marquee sign. Blocky and loud, best in short bursts.</div>
+        <div class="meta"><b>Marquee.</b> Bungee + Rubik</div>
+      </div>
+      <div class="type" data-t="t3" style="font-family:Nunito,sans-serif">
+        <div class="big" style="font-family:'Lilita One'">Casper</div>
+        <div class="sub">Saturday-morning cartoon. Round and friendly, like an old comic cover.</div>
+        <div class="meta"><b>Cartoon.</b> Lilita One + Nunito</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="grain"></div>
+    <div class="kicker">The cast, now with their gear</div>
+    <h2>Every agent brings a prop.</h2>
+    <p class="lede">The prop says what the agent does at a glance. Shadow bodies with glowing eyes, plus a few lit details: pack lights, goggle lenses, a headset mic, a candle flame. Everything stays a silhouette, so the moon and the eyes do the acting.</p>
+    <div class="cast" id="cast"></div>
+    <p class="note-ip">These are a nod to old ghost movies, not copies. No real logos or characters, and no slashed-ghost sign. That matters if Casper becomes a real company. The name "Casper" itself also needs a trademark check before the YC app.</p>
+  </section>
+
+</div>
+
+<script>
+if (window.top === window.self) document.body.classList.add('standalone');
+const K='#0d0b09', P='#efe6d2';
+const eyes=(pts,shape='almond')=>pts.map(([x,y],i)=>`<g transform="translate(${x} ${y})"><g class="blink" style="--bd:${(i*.04).toFixed(2)}s"><path class="glow" fill="#f5d76e" d="${shape==='round'?'M0 -7 a5 7 0 1 0 .01 0':'M-6 -1 Q0 -7.5 6 -1 Q0 3.5 -6 -1 Z'}"/></g></g>`).join('');
+
+const CHARS = {
+  casper:{ name:'Casper', prop:'Wears a proton pack, backwards', role:'The resident. Holds what the team knows, even after people leave.', hover:1, svg:()=>`
+    <rect x="10" y="44" width="20" height="34" rx="3" fill="${K}"/>
+    <path d="M24 50 L42 58" stroke="${K}" stroke-width="5"/>
+    <circle class="led glow" cx="16" cy="52" r="1.8" fill="#f5d76e"/><circle class="led l2 glow" cx="16" cy="59" r="1.8" fill="#f5d76e"/><circle class="led l3 glow" cx="16" cy="66" r="1.8" fill="#f5d76e"/>
+    <path d="M16 78 Q8 94 22 92" stroke="${K}" stroke-width="3.5" fill="none"/>
+    <circle cx="60" cy="42" r="28" fill="${K}"/>
+    <path fill="${K}" d="M34 52 C34 78 46 96 64 104 C74 108 86 104 92 96 C84 99 75 96 73 88 C84 76 88 62 86 52 Z"/>
+    <path fill="${K}" d="M37 64 Q26 74 20 84 Q30 80 40 72 Z"/>
+    <path d="M14 92 L30 80" stroke="${K}" stroke-width="5" stroke-linecap="round"/>
+    <g class="wave"><path fill="${K}" d="M84 60 Q96 52 100 40 Q104 48 90 64 Z"/></g>
+    ${eyes([[50,42],[70,42]],'round')}
+    <path class="glow" d="M54 56 Q60 61 66 56" stroke="#f5d76e" stroke-width="2" fill="none" stroke-linecap="round" opacity=".85"/>`},
+  jack:{ name:'Jack', prop:'Night-vision goggles', role:'Sankritya’s agent. Does his errands on the web.', svg:()=>`
+    <path fill="${K}" d="M57 34 Q55 22 62 16 Q67 13 68 17 Q61 23 63 34 Z"/>
+    <path fill="${K}" d="M60 34 C76 30 100 38 101 66 C102 92 82 100 60 98 C38 100 18 92 19 66 C20 38 44 30 60 34 Z"/>
+    <path d="M20 54 Q60 34 100 54" stroke="${K}" stroke-width="5" fill="none"/>
+    <circle cx="47" cy="44" r="9" fill="${K}"/><circle cx="73" cy="44" r="9" fill="${K}"/>
+    <circle class="eco" cx="47" cy="44" r="5.5" fill="none" stroke="#9df27a" stroke-width="1.6"/><circle class="eco" cx="73" cy="44" r="5.5" fill="none" stroke="#9df27a" stroke-width="1.6"/>
+    ${eyes([[47,64],[73,64]])}
+    <path class="glow" fill="#f5a94e" d="M42 78 L49 85 L54 79 L60 86 L66 79 L71 85 L78 78 Q60 94 42 78 Z"/>`},
+  batty:{ name:'Batty', prop:'Dispatcher headset. Answers every call', role:'Kinjal’s agent. Fast, a little chaotic.', hover:1, svg:()=>`
+    <path class="wing-l" fill="${K}" d="M36 60 Q20 40 4 50 Q12 56 10 66 Q18 62 22 72 Q28 64 36 72 Z"/>
+    <path class="wing-r" fill="${K}" d="M84 60 Q100 40 116 50 Q108 56 110 66 Q102 62 98 72 Q92 64 84 72 Z"/>
+    <path fill="${K}" d="M42 44 L44 24 L54 38 Q60 36 66 38 L76 24 L78 44 Q90 56 88 72 Q86 92 60 92 Q34 92 32 72 Q30 56 42 44 Z"/>
+    <path d="M36 50 Q60 22 84 50" stroke="${K}" stroke-width="4" fill="none"/>
+    <circle cx="84" cy="54" r="7" fill="${K}"/>
+    <path d="M84 60 Q84 78 68 80" stroke="${K}" stroke-width="3" fill="none"/>
+    <circle class="led sig" cx="67" cy="80" r="2.6" fill="#ff5a3c"/>
+    ${eyes([[51,62],[69,62]])}`},
+  juice:{ name:'Juice', prop:'Striped tie. Shows up when you say his name three times', role:'The specialist. Summoned into the room for one job.', svg:()=>`
+    <path fill="${K}" d="M36 34 L38 12 L50 26 L58 6 L65 25 L77 10 L80 28 L88 18 L86 38 C94 48 96 58 96 70 C96 94 82 104 60 104 C38 104 24 94 24 70 C24 54 28 42 36 34 Z"/>
+    <path fill="${K}" d="M60 90 L44 82 L44 100 Z M60 90 L76 82 L76 100 Z"/>
+    <path d="M48 84 V98 M53 86.5 V95.5 M72 84 V98 M67 86.5 V95.5" stroke="${P}" stroke-width="2" opacity=".85"/>
+    <circle cx="60" cy="90" r="3" fill="${K}" stroke="${P}" stroke-width="1"/>
+    ${eyes([[49,58],[71,58]])}
+    <path class="glow" d="M48 72 Q60 80 72 72" stroke="#f5d76e" stroke-width="2" fill="none" stroke-linecap="round"/>`},
+  luna:{ name:'Luna', prop:'Nightcap. On the night shift', role:'Runs on timers while you sleep. Wakes on the actor’s alarm.', hover:1, svg:()=>`
+    <path fill="${K}" d="M66 14 C40 16 22 38 22 62 C22 88 42 106 68 106 C78 106 86 102 92 96 C70 96 52 80 52 58 C52 40 62 24 76 16 C73 14 70 14 66 14 Z"/>
+    <path fill="${K}" d="M44 26 Q58 2 92 6 Q104 10 102 22 Q90 14 78 22 Q62 18 44 26 Z"/>
+    <circle cx="104" cy="24" r="6" fill="${K}"/>
+    ${eyes([[31,56],[44,60]])}`},
+  wick:{ name:'Wick', prop:'Reading glasses and a lit flame', role:'The scribe. Writes it all down and keeps the receipts.', svg:()=>`
+    <path class="flame glow" fill="#f5d76e" d="M60 12 Q71 25 66 34 Q63 40 60 40 Q57 40 54 34 Q49 25 60 12 Z"/>
+    <path d="M60 40 L60 46" stroke="${K}" stroke-width="2.5"/>
+    <path fill="${K}" d="M38 52 Q38 44 46 44 L74 44 Q82 44 82 52 L82 104 L38 104 Z"/>
+    <path fill="${K}" d="M42 46 Q44 62 47 60 Q50 58 50 46 Z M68 46 Q69 66 73 64 Q76 62 76 46 Z"/>
+    <circle cx="51" cy="70" r="8" fill="none" stroke="${P}" stroke-width="1.6" opacity=".7"/><circle cx="69" cy="70" r="8" fill="none" stroke="${P}" stroke-width="1.6" opacity=".7"/>
+    <path d="M59 69 Q60 67 61 69" stroke="${P}" stroke-width="1.6" fill="none" opacity=".7"/>
+    ${eyes([[51,70],[69,70]])}`},
+  salem:{ name:'Salem', prop:'A twitchy detector with antennae', role:'The watcher. Keeps an eye on a page and says when it changes.', svg:()=>`
+    <path fill="${K}" d="M14 92 Q-2 86 4 66 Q6 60 10 62 Q6 78 18 84 Z"/>
+    <path fill="${K}" d="M26 52 L29 22 L46 38 Q56 35 66 38 L83 22 L86 52 C93 72 88 100 56 100 C24 100 19 72 26 52 Z"/>
+    <path d="M76 80 L90 76" stroke="${K}" stroke-width="5" stroke-linecap="round"/>
+    <rect x="88" y="66" width="22" height="16" rx="3" fill="${K}"/>
+    <path d="M92 66 L86 48 M106 66 L112 48" stroke="${K}" stroke-width="2.5"/>
+    <circle class="led glow" cx="86" cy="47" r="2.4" fill="#f5d76e"/><circle class="led l2 glow" cx="112" cy="47" r="2.4" fill="#f5d76e"/>
+    <rect class="eco" x="92" y="70" width="14" height="5" rx="1" fill="#9df27a" opacity=".85"/>
+    ${eyes([[45,64],[67,64]])}`},
+  ghostface:{ name:'Ghostface', prop:'Always on the phone', role:'The outsider. A customer, or another company’s agent calling in.', svg:()=>`
+    <path fill="${K}" d="M34 30 C20 50 18 90 30 112 L90 112 C102 90 100 50 86 30 Z"/>
+    <path fill="${P}" d="M60 14 C82 14 90 40 88 62 C86 86 74 102 60 102 C46 102 34 86 32 62 C30 40 38 14 60 14 Z"/>
+    <path fill="${K}" d="M40 46 Q47 40 53 48 Q55 58 47 66 Q39 62 40 46 Z M80 46 Q73 40 67 48 Q65 58 73 66 Q81 62 80 46 Z M60 72 Q67 74 66 88 Q65 98 60 98 Q55 98 54 88 Q53 74 60 72 Z"/>
+    <path fill="${K}" d="M22 50 Q12 64 20 82 L28 78 Q22 66 30 54 Z"/>
+    <path d="M22 82 Q18 96 30 100" stroke="${K}" stroke-width="2" fill="none"/>`},
+};
+const svgOf = k => `<svg viewBox="0 0 120 120"><g class="sway">${CHARS[k].svg()}</g></svg>`;
+
+/* poster lineup */
+const LINE = [['luna',8,96],['wick',21,104],['jack',34,124],['casper',50,150],['batty',66,124],['salem',79,112],['juice',92,104]];
+const lineup = document.getElementById('lineup');
+LINE.forEach(([k,x,w],i)=>{
+  const d=document.createElement('div'); d.className='ag'+(CHARS[k].hover?' hover':''); d.id='ag-'+k;
+  d.style.cssText=`left:${x}%;--w:${w}px;--d:-${(i*0.7).toFixed(1)}s`; d.innerHTML=svgOf(k);
+  lineup.appendChild(d);
+});
+
+/* cast cards */
+const cast=document.getElementById('cast');
+['casper','jack','batty','juice','luna','wick','salem','ghostface'].forEach((k,i)=>{
+  const c=CHARS[k], el=document.createElement('div'); el.className='card';
+  el.innerHTML=`<div class="stage"><div class="ag${c.hover?' hover':''}" style="--d:-${i*.6}s">${svgOf(k)}</div></div><b>${c.name}</b><div class="prop">${c.prop}</div><div class="role">${c.role}</div>`;
+  cast.appendChild(el);
+});
+
+/* type picker */
+document.querySelectorAll('.type').forEach(t=>t.addEventListener('click',()=>{
+  document.querySelectorAll('.type').forEach(x=>x.classList.remove('on')); t.classList.add('on');
+  document.body.classList.remove('t2','t3'); if(t.dataset.t!=='t1') document.body.classList.add(t.dataset.t);
+  if (window.top === window.self) document.body.classList.add('standalone');
+}));
+
+/* relay stream: crackling bolt + note between two agents */
+const poster=document.getElementById('poster'), bolt=document.getElementById('bolt'), bolt2=document.getElementById('bolt2'), note=document.getElementById('note');
+const MSGS=[['jack','batty','Pull the Q3 refunds from Stripe','Relay DM'],['batty','casper','What’s our refund limit?','Relay DM'],['casper','batty','$500 a day. Above that, ask Kinjal.','Reply'],['batty','jack','Done. 14 refunds, $3,212','Reply']];
+let mi=0;
+function center(k){ const r=document.getElementById('ag-'+k).getBoundingClientRect(), p=poster.getBoundingClientRect(); return [r.left-p.left+r.width*.5, r.top-p.top+r.height*.42]; }
+function jag(a,b,amp){ const n=14; let d=`M${a[0].toFixed(1)} ${a[1].toFixed(1)}`; for(let i=1;i<n;i++){ const t=i/n, x=a[0]+(b[0]-a[0])*t, y=a[1]+(b[1]-a[1])*t - Math.sin(t*Math.PI)*70; d+=` L${(x+(Math.random()-.5)*amp).toFixed(1)} ${(y+(Math.random()-.5)*amp).toFixed(1)}`;} return d+` L${b[0].toFixed(1)} ${b[1].toFixed(1)}`; }
+function send(){
+  const [from,to,text,kind]=MSGS[mi++%MSGS.length];
+  const A=center(from), B=center(to); const t0=performance.now(), D=1300;
+  note.innerHTML=`${text}<small>${kind}</small>`;
+  function tick(now){
+    const p=Math.min(1,(now-t0)/D);
+    bolt.setAttribute('d',jag(A,B,10)); bolt2.setAttribute('d',jag(A,B,6));
+    const o = p<.1?p*10:p>.85?(1-p)/.15:1; bolt.setAttribute('opacity',o*.95); bolt2.setAttribute('opacity',o*.8);
+    const e=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2, x=A[0]+(B[0]-A[0])*e, y=A[1]+(B[1]-A[1])*e-Math.sin(e*Math.PI)*70;
+    note.style.left=x+'px'; note.style.top=y+'px'; note.style.opacity=o;
+    if(p<1) requestAnimationFrame(tick); else { bolt.setAttribute('opacity',0); bolt2.setAttribute('opacity',0); note.style.opacity=0; setTimeout(send,1100); }
+  }
+  requestAnimationFrame(tick);
+}
+setTimeout(send,700);
+</script>
+</body>
+</html>

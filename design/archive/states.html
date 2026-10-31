@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Casper · edge-case states</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --canvas:#fbf6ec; --raised:#ffffff; --inset:#f2ebdf; --page:#efe8da;
+    --ink:#1f1c18; --ink-2:rgba(31,28,24,.68); --ink-3:rgba(31,28,24,.48);
+    --line:rgba(190,176,156,.36); --line-2:rgba(190,176,156,.62); --dots:rgba(150,134,110,.30);
+    --accent:#e0682e; --accent-wash:rgba(224,104,46,.08);
+    --warn:#a8741a; --warn-wash:rgba(196,140,40,.10); --warn-line:rgba(168,116,26,.40);
+    --bad:#b0442c; --bad-wash:rgba(176,68,44,.08); --bad-line:rgba(176,68,44,.38);
+    --ok:#3f7a3a; --ok-wash:rgba(80,150,70,.12);
+    --eyes:#f2c75c; --body-fill:#1f1c18; --pill:#efe7d9;
+    --shadow:0 1px 2px rgba(60,45,25,.06),0 8px 24px -16px rgba(60,45,25,.25);
+  }
+  html,body{margin:0}
+  body{font-family:Nunito,system-ui,sans-serif;color:var(--ink)}
+  body.standalone{background:var(--page);padding:32px 24px}
+  .wrap{max-width:1240px;margin:0 auto}
+  .head h1{font:400 34px/1.05 "Lilita One";margin:0 0 6px}
+  .head p{font:600 15.5px/1.55 Nunito;color:var(--ink-2);margin:0;max-width:70ch}
+  .legend{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 18px}
+  .legend span{display:inline-flex;align-items:center;gap:6px;font:700 13px Nunito;color:var(--ink-2);background:var(--raised);border:1px solid var(--line-2);border-radius:999px;padding:4px 10px}
+  .legend i{width:10px;height:10px;border-radius:3px}
+  h2.group{font:400 22px "Lilita One";margin:26px 0 10px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px}
+  .tile{background:var(--raised);border:1px solid var(--line-2);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+  .tile .meta{padding:12px 14px 10px;border-bottom:1px solid var(--line)}
+  .tile .meta .row{display:flex;align-items:center;gap:8px}
+  .tile .meta b{font:800 15px Nunito}
+  .tile .meta .n{font:800 12.5px Nunito;color:var(--ink-3)}
+  .tile .meta .sat{margin-left:auto;font:800 12px Nunito;border-radius:999px;padding:2px 8px}
+  .sat.yes{background:var(--ink);color:var(--canvas)} .sat.later{background:var(--pill);color:var(--ink-3)}
+  .tile .meta p{margin:4px 0 0;font:600 13.5px/1.45 Nunito;color:var(--ink-2)}
+  .stage{position:relative;flex:1;min-height:250px;padding:18px;background:var(--canvas);background-image:radial-gradient(circle,var(--dots) 1.1px,transparent 1.3px);background-size:22px 22px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:12px}
+  .stage.center{align-items:center}
+  .tile .parts{padding:9px 14px;border-top:1px solid var(--line);font:600 13px Nunito;color:var(--ink-3)}
+  .tile .parts code{font:700 12.5px ui-monospace,Menlo,monospace;color:var(--ink-2);background:var(--inset);border-radius:5px;padding:1px 5px}
+
+  /* ---------- reusable parts (same as the canvas) ---------- */
+  .node{position:relative;width:236px;background:var(--raised);border:1px solid var(--line-2);border-radius:12px;padding:11px 12px;box-shadow:var(--shadow)}
+  .node .hd{display:flex;align-items:center;gap:10px}
+  .node .av{width:40px;height:40px;flex:none;border-radius:10px;background:var(--inset);display:grid;place-items:center;position:relative}
+  .node .av svg{width:34px;height:34px;overflow:visible}
+  .node .nm{font:800 15px Nunito}
+  .node .nm small{font:600 12.5px Nunito;color:var(--ink-3);margin-left:4px}
+  .node .st{font:600 13px Nunito;color:var(--ink-2)}
+  .node .line{margin-top:9px;font:700 13px Nunito;display:flex;align-items:center;gap:6px}
+  .node.sel{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-wash),var(--shadow)}
+  .node.warn{border-color:var(--warn-line);box-shadow:0 0 0 3px var(--warn-wash),var(--shadow)}
+  .node.bad{border-color:var(--bad-line);box-shadow:0 0 0 3px var(--bad-wash),var(--shadow)}
+  .node.off{background:var(--inset);box-shadow:none;border-style:dashed}
+  .node.off .av svg{opacity:.45}
+  .node.off .nm,.node.off .st{color:var(--ink-3)}
+  .node.guest{border-style:dashed;border-color:var(--ink-3)}
+  .node.ghost{opacity:.55}
+  .badge{display:inline-flex;align-items:center;gap:5px;font:800 12px Nunito;border-radius:999px;padding:2px 8px;margin-left:6px}
+  .badge.guest{background:var(--ink);color:var(--canvas)}
+  .badge.off{background:var(--line);color:var(--ink-2)}
+  .live{display:inline-flex;align-items:center;gap:6px;font:700 12.5px Nunito;color:var(--ok);background:var(--ok-wash);padding:2px 8px;border-radius:999px}
+  .live i{width:6px;height:6px;border-radius:50%;background:var(--ok)}
+  .lamp{position:absolute;right:-3px;top:-3px;width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--raised);animation:pulse 2s ease-in-out infinite}
+  .lamp.warn{background:var(--warn)}
+  @keyframes pulse{50%{opacity:.4}}
+
+  .card{position:relative;width:300px;background:var(--raised);border:1px solid var(--line-2);border-radius:12px;padding:12px 13px;box-shadow:var(--shadow)}
+  .card .k{font:800 12px Nunito;letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+  .card .t{font:400 19px/1.15 "Lilita One";margin:6px 0 6px}
+  .card .d{font:600 13.5px/1.45 Nunito;color:var(--ink-2)}
+  .card .d b{color:var(--ink);font-weight:800}
+  .card .rows{display:grid;grid-template-columns:72px 1fr;gap:3px 10px;font:600 13px Nunito;color:var(--ink-3);margin-top:6px}
+  .card .rows b{color:var(--ink);font-weight:700}
+  .card .act{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+  .card .foot{margin-top:9px;font:600 12.5px Nunito;color:var(--ink-3);display:flex;align-items:center;gap:6px}
+  .card.need{border-color:rgba(224,104,46,.5);background:linear-gradient(180deg,var(--accent-wash),var(--raised))}
+  .card.need .k{color:var(--accent)}
+  .card.warn{border-color:var(--warn-line);background:linear-gradient(180deg,var(--warn-wash),var(--raised))}
+  .card.warn .k{color:var(--warn)}
+  .card.bad{border-color:var(--bad-line);background:linear-gradient(180deg,var(--bad-wash),var(--raised))}
+  .card.bad .k{color:var(--bad)}
+  .card .who{display:flex;align-items:center;gap:8px;font:700 13.5px Nunito;color:var(--ink-2)}
+  .card .who .mini{width:24px;height:24px;border-radius:7px;background:var(--inset);display:grid;place-items:center}
+  .card .who .mini svg{width:20px;height:20px;overflow:visible}
+  .timer{height:4px;border-radius:9px;background:var(--inset);overflow:hidden;margin-top:9px}
+  .timer i{display:block;height:100%;background:var(--accent);animation:drain 20s linear infinite}
+  @keyframes drain{from{width:100%}to{width:0}}
+
+  .b{font:700 13px Nunito;border-radius:9px;padding:6px 12px;border:1px solid var(--line-2);background:var(--raised);color:var(--ink);cursor:pointer;white-space:nowrap}
+  .b.dark{background:var(--ink);color:var(--canvas);border-color:transparent}
+  .b.acc{color:var(--accent);border-color:rgba(224,104,46,.4);background:transparent}
+  .b.ghost{border-color:transparent;background:transparent;color:var(--ink-2)}
+
+  .frame{position:relative;width:300px;height:186px;border:1.5px solid var(--line-2);border-radius:12px;background:var(--raised);box-shadow:var(--shadow);margin-top:48px}
+  .frame .lbl{position:absolute;left:84px;top:-24px;font:700 13px Nunito;color:var(--ink-2);white-space:nowrap}
+  .frame .lbl b{color:var(--ink)}
+  .frame .body{position:absolute;inset:8px;border-radius:7px;overflow:hidden;background:#17140f}
+  .frame .perch{position:absolute;left:14px;top:-56px;width:62px;height:62px}
+  .frame .perch svg{width:100%;height:100%;overflow:visible}
+  .frame.driven{border-color:#7a96c9;box-shadow:0 0 0 3px rgba(122,150,201,.18),var(--shadow)}
+  .frame.asleep .body{filter:grayscale(1) brightness(.55)}
+  .frame .over{position:absolute;inset:8px;border-radius:7px;display:grid;place-items:center;text-align:center;background:rgba(23,20,15,.55);color:#efe6d2;font:700 13.5px/1.4 Nunito;padding:14px}
+  .frame .over .b{margin-top:8px}
+  .frame .pill{position:absolute;right:10px;top:-13px;font:800 12px Nunito;border-radius:999px;padding:3px 9px;background:#7a96c9;color:#fff}
+  .desk{position:absolute;inset:0;background:linear-gradient(180deg,#1b1813,#2a2218 70%,#3a2e1f)}
+  .desk::before{content:"";position:absolute;right:7%;top:12%;width:26%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 42% 38%,#d9cdb0,#b9a984);opacity:.3}
+  .desk .bar{position:absolute;left:0;right:0;top:0;height:7%;background:#0b0a08}
+  .desk .win{position:absolute;left:6%;top:14%;width:78%;height:78%;background:#f6f3ec;border-radius:3px;overflow:hidden}
+  .desk .win i{display:block;height:7%;margin:3.6% 4%;border-radius:2px;background:#e5e0d5}
+  .desk .win i:nth-child(odd){width:70%}
+  .login{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);width:58%;background:#fff;border-radius:6px;padding:10px;box-shadow:0 4px 14px rgba(0,0,0,.18);font:700 11px Nunito;color:#333}
+  .login .f{height:18px;border:1px solid #ccc;border-radius:4px;margin-top:6px;display:flex;gap:4px;padding:2px}
+  .login .f i{flex:1;border-radius:2px;background:#eee}
+  .mcur{position:absolute;width:12px;height:12px}
+
+  .wirebox{position:relative;width:100%;height:150px}
+  .wirebox svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+  .wirebox .node{position:absolute;width:190px}
+  .wire{fill:none;stroke:var(--line-2);stroke-width:1.6}
+  .wire.hot{stroke:var(--accent)} .wire.warn{stroke:var(--warn);stroke-dasharray:5 5}
+  .tag{position:absolute;transform:translate(-50%,-50%);font:700 12.5px Nunito;color:var(--ink-2);background:var(--pill);border:1px solid var(--line);border-radius:999px;padding:2px 9px;white-space:nowrap}
+  .tag.warn{background:var(--warn-wash);color:var(--warn);border-color:var(--warn-line)}
+  .banner{display:flex;align-items:center;gap:10px;background:var(--ink);color:var(--canvas);border-radius:12px;padding:9px 10px 9px 14px;font:700 13.5px Nunito;box-shadow:var(--shadow)}
+  .banner .b{background:transparent;color:var(--canvas);border-color:rgba(251,246,236,.3)}
+  .banner .b.dark{background:var(--canvas);color:var(--ink)}
+  .toast{display:inline-flex;align-items:center;gap:8px;background:var(--ink);color:var(--canvas);border-radius:10px;padding:7px 11px;font:700 13px Nunito;box-shadow:var(--shadow)}
+  .bubble{position:relative;max-width:300px;background:var(--raised);border:1px solid var(--line-2);border-radius:12px 12px 12px 4px;padding:10px 12px;font:600 13.5px/1.45 Nunito;color:var(--ink-2);box-shadow:var(--shadow)}
+  .bubble b{color:var(--ink)}
+  .bubble .from{font:800 12px Nunito;color:var(--ink-3);margin-bottom:3px;letter-spacing:.04em;text-transform:uppercase}
+  .row{display:flex;align-items:center;gap:10px}
+  .row.tight .node{width:168px}
+  .crow{width:100%;max-width:440px;display:flex;align-items:center;gap:10px;background:var(--raised);border:1px solid var(--line-2);border-radius:12px;padding:9px 12px;font:600 14px Nunito;color:var(--ink-2)}
+  .crow .stack{display:flex}.crow .stack .mini{width:24px;height:24px;border-radius:7px;background:var(--inset);display:grid;place-items:center;margin-left:-6px;border:2px solid var(--raised)}
+  .crow .stack .mini svg{width:20px;height:20px;overflow:visible}
+  .crow b{color:var(--ink)} .crow .x{margin-left:auto;font:700 13px Nunito;color:var(--ink-3)}
+  .cursor{display:inline-flex;align-items:flex-start}
+  .cursor svg{width:18px;height:18px}
+  .cursor span{font:800 12px Nunito;color:#1f1c18;padding:2px 7px;border-radius:5px;margin:12px 0 0 -4px}
+  .door{position:relative;width:300px;height:96px;border:1.5px dashed var(--ink-3);border-radius:12px;display:flex;align-items:center;justify-content:center;gap:10px;font:700 13.5px Nunito;color:var(--ink-3)}
+  .walkin{position:absolute;left:-10px;top:50%;transform:translateY(-50%);width:54px;height:54px;animation:walk 3s ease-in-out infinite}
+  .walkin svg{width:100%;height:100%;overflow:visible}
+  @keyframes walk{0%{left:-20px;opacity:0}30%{opacity:1}60%,100%{left:40px;opacity:1}}
+  .queue{display:flex;flex-direction:column;gap:6px;width:300px}
+  .queue .qh{display:flex;align-items:center;gap:8px;font:800 14px Nunito}
+  .queue .qh span{background:var(--accent);color:#fff;border-radius:999px;padding:0 8px;font:800 12.5px Nunito}
+  .queue .qi{display:flex;align-items:center;gap:8px;background:var(--raised);border:1px solid var(--line-2);border-radius:10px;padding:7px 10px;font:600 13.5px Nunito;color:var(--ink-2)}
+  .queue .qi b{color:var(--ink)} .queue .qi time{margin-left:auto;font:600 12.5px Nunito;color:var(--ink-3)}
+  .queue .qi .mini{width:22px;height:22px;border-radius:6px;background:var(--inset);display:grid;place-items:center}
+  .queue .qi .mini svg{width:18px;height:18px;overflow:visible}
+
+  /* faces */
+  .blink{animation:blink 6s infinite;transform-box:fill-box;transform-origin:center;animation-delay:var(--bd,0s)}
+  @keyframes blink{0%,95%,100%{transform:scaleY(1)}97%{transform:scaleY(.1)}}
+  .breathe{transform-origin:50% 100%;animation:br 4.2s ease-in-out infinite}
+  @keyframes br{50%{transform:scale(1.02,.985)}}
+  .shiver{animation:sh 3s ease-in-out infinite;transform-origin:50% 100%}
+  @keyframes sh{0%,80%,100%{transform:translateX(0)}84%{transform:translateX(-1.5px)}88%{transform:translateX(1.5px)}92%{transform:translateX(-1px)}}
+  .flame{transform-box:fill-box;transform-origin:50% 100%;animation:fl .6s ease-in-out infinite alternate}
+  @keyframes fl{to{transform:scale(.92,1.08)}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>Every state, drawn.</h1>
+    <p>The canvas pieces the coding agent should copy as-is: agent cards, computer frames, ask cards, banners and toasts. Each tile names the state, what causes it, and which parts it uses. Colours carry meaning: <b>orange</b> means a person is needed, <b>amber</b> means something looks wrong, <b>red</b> means it failed, and <b>blue</b> means a person is driving.</p>
+  </div>
+  <div class="legend"><span><i style="background:var(--accent)"></i>Needs a person</span><span><i style="background:var(--warn)"></i>Something looks wrong</span><span><i style="background:var(--bad)"></i>Failed</span><span><i style="background:#7a96c9"></i>A person is driving</span><span><i style="background:var(--ok)"></i>Live and fine</span></div>
+
+  <h2 class="group">Bringing in a new agent</h2>
+  <div class="grid" id="g1"></div>
+  <h2 class="group">When an agent stops working</h2>
+  <div class="grid" id="g2"></div>
+  <h2 class="group">When an agent wants something</h2>
+  <div class="grid" id="g3"></div>
+  <h2 class="group">Agents talking to each other</h2>
+  <div class="grid" id="g4"></div>
+  <h2 class="group">People sharing the room</h2>
+  <div class="grid" id="g5"></div>
+</div>
+
+<script>
+if (window.top === window.self) document.body.classList.add('standalone');
+/* ---------- characters with moods ---------- */
+const E='var(--eyes)', K='var(--body-fill)';
+const EYE={casper:[[50,42],[70,42]],pumpkin:[[47,64],[73,64]],bat:[[51,62],[69,62]],candle:[[51,70],[69,70]],moon:[[31,56],[44,60]],cat:[[45,64],[67,64]],ghostface:null};
+function face(kind,mood){
+  const pts=EYE[kind]; if(!pts) return '';
+  return pts.map(([x,y],i)=>{
+    const L=i===0;
+    if(mood==='sleep'||mood==='off') return `<path d="M${x-5} ${y} Q${x} ${y+3.5} ${x+5} ${y}" stroke="${E}" stroke-width="2" fill="none" stroke-linecap="round" opacity="${mood==='off'?.5:.9}"/>`;
+    if(mood==='happy') return `<path d="M${x-5} ${y+1} Q${x} ${y-5} ${x+5} ${y+1}" stroke="${E}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
+    const eye = kind==='casper' ? `M0 -6.5 a4.6 6.5 0 1 0 .01 0` : `M-6 -1 Q0 -7 6 -1 Q0 3.2 -6 -1 Z`;
+    const sc = mood==='worried'?.8:mood==='alert'?1.15:1;
+    const brow = mood==='worried' ? `<path d="${L?`M${x-6} ${y-8} L${x+4} ${y-12}`:`M${x-4} ${y-12} L${x+6} ${y-8}`}" stroke="${E}" stroke-width="2" stroke-linecap="round"/>`
+               : mood==='alert' ? `<path d="M${x-5} ${y-11} Q${x} ${y-14} ${x+5} ${y-11}" stroke="${E}" stroke-width="2" fill="none" stroke-linecap="round"/>`
+               : mood==='focus' ? `<path d="${L?`M${x-6} ${y-11} L${x+5} ${y-9}`:`M${x-5} ${y-9} L${x+6} ${y-11}`}" stroke="${E}" stroke-width="2" stroke-linecap="round"/>` : '';
+    return `<g transform="translate(${x} ${y}) scale(${sc})"><g class="blink" style="--bd:${i*.05}s"><path fill="${E}" d="${eye}"/></g></g>${brow}`;
+  }).join('');
+}
+const BODY={
+  casper:`<circle cx="60" cy="42" r="28" fill="${K}"/><path fill="${K}" d="M34 52 C34 78 46 96 64 104 C74 108 86 104 92 96 C84 99 75 96 73 88 C84 76 88 62 86 52 Z"/><path fill="${K}" d="M84 60 Q96 52 100 40 Q104 48 90 64 Z"/><rect x="10" y="44" width="20" height="34" rx="3" fill="${K}"/><path d="M24 50 L42 58" stroke="${K}" stroke-width="5"/>`,
+  pumpkin:`<path fill="${K}" d="M57 34 Q55 22 62 16 Q67 13 68 17 Q61 23 63 34 Z"/><path fill="${K}" d="M60 34 C76 30 100 38 101 66 C102 92 82 100 60 98 C38 100 18 92 19 66 C20 38 44 30 60 34 Z"/><path d="M20 54 Q60 34 100 54" stroke="${K}" stroke-width="5" fill="none"/><circle cx="47" cy="44" r="9" fill="${K}"/><circle cx="73" cy="44" r="9" fill="${K}"/><circle cx="47" cy="44" r="5" fill="none" stroke="#8fcf78" stroke-width="1.6"/><circle cx="73" cy="44" r="5" fill="none" stroke="#8fcf78" stroke-width="1.6"/>`,
+  bat:`<path fill="${K}" d="M36 60 Q20 40 4 50 Q12 56 10 66 Q18 62 22 72 Q28 64 36 72 Z"/><path fill="${K}" d="M84 60 Q100 40 116 50 Q108 56 110 66 Q102 62 98 72 Q92 64 84 72 Z"/><path fill="${K}" d="M42 44 L44 24 L54 38 Q60 36 66 38 L76 24 L78 44 Q90 56 88 72 Q86 92 60 92 Q34 92 32 72 Q30 56 42 44 Z"/><path d="M36 50 Q60 22 84 50" stroke="${K}" stroke-width="4" fill="none"/><circle cx="84" cy="54" r="7" fill="${K}"/><path d="M84 60 Q84 78 68 80" stroke="${K}" stroke-width="3" fill="none"/><circle cx="67" cy="80" r="2.6" fill="#d9694e"/>`,
+  candle:`<path class="flame" fill="${E}" d="M60 12 Q71 25 66 34 Q63 40 60 40 Q57 40 54 34 Q49 25 60 12 Z"/><path fill="${K}" d="M38 52 Q38 44 46 44 L74 44 Q82 44 82 52 L82 104 L38 104 Z"/>`,
+  moon:`<path fill="${K}" d="M66 14 C40 16 22 38 22 62 C22 88 42 106 68 106 C78 106 86 102 92 96 C70 96 52 80 52 58 C52 40 62 24 76 16 C73 14 70 14 66 14 Z"/><path fill="${K}" d="M44 26 Q58 2 92 6 Q104 10 102 22 Q90 14 78 22 Q62 18 44 26 Z"/><circle cx="104" cy="24" r="6" fill="${K}"/>`,
+  cat:`<path fill="${K}" d="M14 92 Q-2 86 4 66 Q6 60 10 62 Q6 78 18 84 Z"/><path fill="${K}" d="M26 52 L29 22 L46 38 Q56 35 66 38 L83 22 L86 52 C93 72 88 100 56 100 C24 100 19 72 26 52 Z"/>`,
+  ghostface:`<path fill="${K}" d="M34 30 C20 50 18 90 30 112 L90 112 C102 90 100 50 86 30 Z"/><path fill="#efe6d2" d="M60 14 C82 14 90 40 88 62 C86 86 74 102 60 102 C46 102 34 86 32 62 C30 40 38 14 60 14 Z"/><path fill="${K}" d="M40 46 Q47 40 53 48 Q55 58 47 66 Q39 62 40 46 Z M80 46 Q73 40 67 48 Q65 58 73 66 Q81 62 80 46 Z M60 72 Q67 74 66 88 Q65 98 60 98 Q55 98 54 88 Q53 74 60 72 Z"/>`,
+};
+const ch=(kind,mood='calm',cls='breathe')=>`<svg viewBox="0 0 120 120"><g class="${mood==='worried'?'shiver':cls}">${BODY[kind]}${face(kind,mood)}</g></svg>`;
+const CUR='<svg viewBox="0 0 18 18"><path d="M2 1 L2 15 L6 11 L9 17 L11 16 L8 10 L14 10 Z" fill="#1f1c18" stroke="#fff" stroke-width="1.2"/></svg>';
+const desk=(extra='')=>`<div class="desk"><div class="bar"></div><div class="win"><i></i><i></i><i></i><i></i><i></i><i></i></div>${extra}</div>`;
+const node=(kind,name,owner,st,{cls='',mood='calm',line='',lamp='',badge=''}={})=>`<div class="node ${cls}"><div class="hd"><div class="av">${ch(kind,mood)}${lamp?`<span class="lamp ${lamp}"></span>`:''}</div><div><div class="nm">${name}<small>${owner}</small>${badge}</div><div class="st">${st}</div></div></div>${line?`<div class="line">${line}</div>`:''}</div>`;
+const mini=k=>`<span class="mini">${ch(k,'calm','')}</span>`;
+const tile=(n,name,when,sat,stage,parts,center)=>`<div class="tile"><div class="meta"><div class="row"><span class="n">${n}</span><b>${name}</b><span class="sat ${sat?'yes':'later'}">${sat?'Build Saturday':'Later'}</span></div><p>${when}</p></div><div class="stage ${center?'center':''}">${stage}</div><div class="parts">${parts}</div></div>`;
+
+/* ================= 1. new agents ================= */
+document.getElementById('g1').innerHTML=[
+ tile('1.1','Summoned, fresh','You drew a circle and named the job. It has no computer yet.',1,
+   node('cat','Salem','Sankritya’s','Watch Stripe for new refunds',{mood:'alert',line:'<span style="color:var(--accent)">Draw a frame to give it a computer</span>'})+`<div class="toast">${'Salem joined the room'}</div>`,
+   'Parts: <code>node</code> + <code>toast</code>. Face: alert, for 3 s, then calm.'),
+ tile('1.2','A guest asks to come in','Someone outside the room (a friend, another company) sends their agent. The room owner decides.',1,
+   `<div class="door"><span class="walkin">${ch('ghostface','calm','')}</span>Front door</div>`+
+   `<div class="card need"><div class="k">Needs Sankritya</div><div class="who">${mini('ghostface')}<span><b style="color:var(--ink)">Ghostface</b>, Acme's agent, wants to join #refunds</span></div><div class="rows"><span>Can see</span><b>Only what's shared with it</b><span>Can do</span><b>Nothing without a yes</b></div><div class="act"><button class="b">Not now</button><button class="b dark">Let it in</button></div></div>`,
+   'Parts: <code>door</code> + <code>card.need</code>. The guest gets a Relay pass for this room only.'),
+ tile('1.3','Guest, inside','Let in. It is clearly marked, and its actions need the host’s yes.',1,
+   node('ghostface','Ghostface','Acme’s','Asking about order #4471',{cls:'guest',badge:'<span class="badge guest">Guest</span>',line:'<span style="color:var(--ink-3)">Actions need Sankritya’s yes</span>'}),
+   'Parts: <code>node.guest</code> + <code>badge.guest</code>. Dashed border means "not from this team".'),
+ tile('1.4','Joins halfway through','Batty joins after the refunds started. Casper hands over a catch-up so nobody repeats themselves.',1,
+   `<div class="row">${node('bat','Batty','Kinjal’s','Just joined',{mood:'alert'})}</div><div class="bubble"><div class="from">Casper, catch-up for Batty</div>We found <b>14 double charges</b>. Jack has refunded <b>9</b>. The limit is <b>$500 a day</b>; over that, Kinjal approves. Your job: the apology emails.</div>`,
+   'Parts: <code>node</code> + <code>bubble</code>. Built from the room’s log in the actor.'),
+].join('');
+
+/* ================= 2. stops working ================= */
+document.getElementById('g2').innerHTML=[
+ tile('2.1','Stuck','No new step from its computer for 2 minutes. The actor’s alarm notices.',1,
+   node('pumpkin','Jack','Sankritya’s','Stuck on stripe.com/login',{cls:'warn',mood:'worried',lamp:'warn'})+
+   `<div class="card warn"><div class="k">Looks stuck</div><div class="d">No progress for <b>2 min</b> on the Stripe login page. Last step: <b>typed the email</b>.</div><div class="act"><button class="b">Steer</button><button class="b dark">Take over</button><button class="b ghost">Stop</button></div></div>`,
+   'Parts: <code>node.warn</code> + <code>card.warn</code>. Face: worried, a small shiver every few seconds.'),
+ tile('2.2','Failed','Its run ended with an error. It says what it did and what it did not do.',1,
+   node('pumpkin','Jack','Sankritya’s','Couldn’t finish',{cls:'bad',mood:'worried'})+
+   `<div class="card bad"><div class="k">Couldn’t finish</div><div class="rows"><span>Done</span><b>9 refunds, $2,140</b><span>Not done</span><b>5 refunds, $1,072</b><span>Why</span><b>Stripe logged it out</b></div><div class="act"><button class="b dark">Try the last 5 again</button><button class="b">Take over</button></div></div>`,
+   'Parts: <code>node.bad</code> + <code>card.bad</code>. Always lists done and not done.'),
+ tile('2.3','Not sure it happened','It crashed right after clicking Refund. It never retries money blindly.',1,
+   `<div class="card warn" style="width:320px"><div class="k">Check this</div><div class="t">Did jess.m get refunded?</div><div class="d">Jack clicked <b>Refund $248</b> and then lost its computer. Stripe may or may not have done it.</div><div class="act"><button class="b dark">Open Stripe to check</button><button class="b">It went through</button><button class="b">It didn’t</button></div></div>`,
+   'Parts: <code>card.warn</code>. Every money action has an id, and unclear ones become this card.'),
+ tile('2.4','Computer asleep','The VM stopped on its timer. The agent is fine, its computer isn’t.',1,
+   `<div class="frame asleep"><div class="lbl"><b>Jack's computer</b> · asleep</div><div class="perch">${ch('pumpkin','sleep','')}</div><div class="body">${desk()}</div><div class="over"><div>Computer is asleep<br><span style="font-weight:600;opacity:.8">Open tabs are gone; files are kept</span><br><button class="b dark">Wake it</button></div></div></div>`,
+   'Parts: <code>frame.asleep</code> + <code>over</code>. Wake = boat resume, a few seconds.'),
+ tile('2.5','Offline','The agent dropped off Relay. Notes to it wait in its inbox.',1,
+   node('bat','Batty','Kinjal’s','Last seen 2 min ago',{cls:'off',mood:'off',badge:'<span class="badge off">Offline</span>',line:'<span style="color:var(--ink-3)">2 notes waiting for it</span>'}),
+   'Parts: <code>node.off</code> + <code>badge.off</code>. Wires to it turn grey and dashed.'),
+ tile('2.6','Server restarted','Our server went down and came back. The room is exactly as it was.',1,
+   `<div class="toast">Reconnected. Nothing was lost.</div>`+node('pumpkin','Jack','Sankritya’s','Refunding double charges',{mood:'happy',line:'<span class="live"><i></i>Back, picked up at refund 10 of 14</span>'}),
+   'Parts: <code>toast</code> + <code>node</code>. The demo moment for the Terse judges.'),
+].join('');
+
+/* ================= 3. wants something ================= */
+document.getElementById('g3').innerHTML=[
+ tile('3.1','Needs a yes','It needs one named person to approve. Everyone sees it; only one approval counts.',1,
+   node('bat','Batty','Kinjal’s','Waiting on Kinjal',{cls:'sel',mood:'alert',lamp:'1'})+
+   `<div class="card need"><div class="k">Needs Kinjal</div><div class="t">Approve $2,712 in refunds?</div><div class="rows"><span>What</span><b>11 refunds over the daily limit</b><span>Asked by</span><b>Jack, for Sankritya</b></div><div class="act"><button class="b">Not now</button><button class="b dark">Approve</button></div><div class="timer"><i></i></div><div class="foot">If Kinjal doesn’t answer in 5 min, it asks Sankritya</div></div>`,
+   'Parts: <code>node.sel</code> + <code>card.need</code> + <code>timer</code>. The only orange in the room.'),
+ tile('3.2','Needs a login or code','It reached a 2FA screen. It never asks for codes in chat; a person types it on its computer.',1,
+   `<div class="frame"><div class="lbl"><b>Jack's computer</b> · waiting for you</div><div class="perch">${ch('pumpkin','alert','')}</div><div class="body">${desk('<div class="login">Enter the 6-digit code<div class="f"><i></i><i></i><i></i><i></i><i></i><i></i></div></div>')}</div></div>`+
+   `<div class="card need" style="width:300px"><div class="k">Needs Sankritya</div><div class="d">Stripe wants a <b>6-digit code</b> from your phone. Take over and type it; Jack carries on after.</div><div class="act"><button class="b dark">Take over</button><button class="b">Not now</button></div></div>`,
+   'Parts: <code>frame</code> + <code>card.need</code>. Take over pauses the agent and hands you its screen.'),
+ tile('3.3','A person is driving','You took over. Your cursor is on its computer; the agent watches and waits.',1,
+   `<div class="frame driven"><span class="pill">Sankritya is driving</span><div class="lbl"><b>Jack's computer</b></div><div class="perch">${ch('pumpkin','calm','')}</div><div class="body">${desk('<div class="login">Enter the 6-digit code<div class="f"><i style="background:#999"></i><i style="background:#999"></i><i style="background:#999"></i><i></i><i></i><i></i></div></div>')}</div></div><div class="row"><button class="b dark">Hand back to Jack</button><span style="font:600 13px Nunito;color:var(--ink-3)">Jack will pick up from here</span></div>`,
+   'Parts: <code>frame.driven</code> + <code>pill</code>. Blue means a human has the controls.'),
+ tile('3.4','Asks Casper first','It needs a fact. It asks the team memory before bothering a person.',1,
+   `<div class="bubble"><div class="from">Jack to Casper</div>What’s our refund limit?</div><div class="bubble" style="margin-left:40px"><div class="from">Casper</div><b>$500 a day.</b> Over that, Kinjal approves. From Dev’s refund playbook, page 3.</div><div class="toast" style="background:var(--raised);color:var(--ink-2);border:1px solid var(--line-2)">If Casper doesn’t know, it asks one person, not the whole room</div>`,
+   'Parts: <code>bubble</code>. Every answer from Casper names its source.'),
+ tile('3.5','Wants a computer','Its job needs the web and it has nowhere to work.',0,
+   node('cat','Salem','Sankritya’s','Watch Stripe for new refunds',{mood:'alert',lamp:'1'})+`<div class="card need"><div class="k">Salem wants a computer</div><div class="d">It needs to open Stripe. <b>Draw a frame</b> anywhere, or let it take a spare one.</div><div class="act"><button class="b dark">Use a spare</button><button class="b">Draw one</button></div></div>`,
+   'Parts: <code>card.need</code>.'),
+ tile('3.6','Several things need you','More than one ask is open. They stack in the corner, oldest first.',0,
+   `<div class="queue"><div class="qh">Needs you <span>3</span></div><div class="qi">${mini('bat')}<span><b>Batty</b>: approve $2,712</span><time>2 min</time></div><div class="qi">${mini('pumpkin')}<span><b>Jack</b>: type a Stripe code</span><time>1 min</time></div><div class="qi">${mini('ghostface')}<span><b>Ghostface</b> wants to join</span><time>now</time></div></div>`,
+   'Parts: <code>queue</code>. Lives top right on the canvas, and opens the right card on click.'),
+].join('');
+
+/* ================= 4. agents talking ================= */
+document.getElementById('g4').innerHTML=[
+ tile('4.1','Same task, one winner','Jack and Batty both reach for the same task. The actor gives it to the first; the other is told.',1,
+   `<div class="card" style="width:320px"><div class="k" style="color:var(--ink-3)">Task · claimed once</div><div class="t">Refund the 14 double charges</div><div class="who">${mini('pumpkin')}<span><b style="color:var(--ink)">Jack</b> has it</span></div></div><div class="toast">${'Batty: Jack already has that one, I’ll do the emails'}</div>`,
+   'Parts: <code>card</code> + <code>toast</code>. The Terse founders’ own "duplicate work" story.'),
+ tile('4.2','Back and forth too long','Two agents keep replying to each other with no person in the loop. After 6 rounds both pause.',1,
+   `<div class="banner">Jack and Batty have gone back and forth 6 times<span style="flex:1"></span><button class="b">See the thread</button><button class="b dark">Step in</button></div><div class="row tight">${node('pumpkin','Jack','','Paused',{cls:'warn',mood:'worried'})}${node('bat','Batty','','Paused',{cls:'warn',mood:'worried'})}</div>`,
+   'Parts: <code>banner</code> + <code>node.warn</code>. Also caps model cost.'),
+ tile('4.3','Room message, one answer','Someone writes to the room without @. At most one agent answers, the one the router picks.',1,
+   `<div class="bubble" style="border-radius:12px 12px 4px 12px;margin-left:auto"><div class="from">Sankritya</div>Can someone check yesterday’s refunds?</div><div class="row"><span class="toast" style="background:var(--raised);color:var(--ink-2);border:1px solid var(--line-2)">${mini('cat')} Salem is answering</span><span style="font:600 13px Nunito;color:var(--ink-3)">Jack, Batty and Casper stay quiet</span></div>`,
+   'Parts: <code>bubble</code> + <code>toast</code>. This is Jev’s job: who answers, or nobody.'),
+ tile('4.4','They disagree','Two sources say different things. A person picks, and Casper remembers.',0,
+   `<div class="card warn" style="width:330px"><div class="k">They disagree</div><div class="t">What’s the refund limit?</div><div class="rows"><span>Casper</span><b>$500 a day, Dev’s playbook</b><span>Batty</span><b>$1,000, Kinjal’s email, Oct 2</b></div><div class="act"><button class="b">$500</button><button class="b">$1,000</button><button class="b ghost">Ask Kinjal</button></div></div>`,
+   'Parts: <code>card.warn</code>.'),
+ tile('4.5','Note to a sleeping agent','Luna is off shift. The note waits, or you wake her.',0,
+   node('moon','Luna','team','Asleep until 2 AM',{cls:'off',mood:'sleep',line:'<span style="color:var(--ink-3)">1 note waiting</span>'})+`<div class="row"><button class="b">Wake her now</button><span style="font:600 13px Nunito;color:var(--ink-3)">or she reads it at 2 AM</span></div>`,
+   'Parts: <code>node.off</code>. Wakes on the actor’s alarm.'),
+ tile('4.6','Asking for someone else’s data','Batty (Kinjal’s) wants something from Sankritya’s Gmail. Jack asks its owner first.',0,
+   `<div class="card need"><div class="k">Needs Sankritya</div><div class="d"><b>Batty</b> (Kinjal’s agent) wants the customer emails from <b>your Gmail</b>, for the apology drafts.</div><div class="act"><button class="b dark">Share once</button><button class="b">Always for Batty</button><button class="b ghost">No</button></div></div>`,
+   'Parts: <code>card.need</code>.'),
+ tile('4.7','Agent chatter, folded','In Chat view, agent-to-agent notes fold into one line so people’s messages stay readable.',1,
+   `<div class="crow"><span class="stack">${mini('pumpkin')}${mini('bat')}</span><span><b>Jack</b> and <b>Batty</b> talked</span><span class="x">4 notes · Open</span></div><div class="crow"><span class="stack">${mini('pumpkin')}${mini('casper')}</span><span><b>Jack</b> asked <b>Casper</b> about the limit</span><span class="x">2 notes · Open</span></div>`,
+   'Parts: <code>crow</code>. On the canvas only the wire pulses.'),
+].join('');
+
+/* ================= 5. people ================= */
+document.getElementById('g5').innerHTML=[
+ tile('5.1','Two people, one agent','Kinjal is already steering Jack. Sankritya gets a polite queue, not a fight.',1,
+   node('pumpkin','Jack','Sankritya’s','Kinjal is steering',{line:'<span style="color:#7a96c9">Kinjal has the controls</span>'})+`<div class="row"><button class="b">Ask to take over</button><span style="font:600 13px Nunito;color:var(--ink-3)">Kinjal gets a one-tap "Hand over"</span></div>`,
+   'Parts: <code>node</code>. One steering lock per agent in the actor.'),
+ tile('5.2','Two people drawing','Both of you are on the canvas. Strokes and cursors show live.',1,
+   `<div class="row"><span class="cursor">${CUR}<span style="background:#e3b07a">Sankritya</span></span><span class="cursor" style="margin-left:60px">${CUR}<span style="background:#b4c6e6">Kinjal, drawing a circle</span></span></div><svg width="180" height="110" style="overflow:visible"><path d="M90 10 C140 10 170 40 165 65 C158 98 110 108 80 100 C40 90 18 60 30 35 C40 18 60 12 76 11" fill="none" stroke="#b4c6e6" stroke-width="3" stroke-linecap="round" stroke-dasharray="320" stroke-dashoffset="320"><animate attributeName="stroke-dashoffset" from="320" to="0" dur="2.4s" repeatCount="indefinite"/></path></svg>`,
+   'Parts: <code>cursor</code>. Each stroke is a small event in the actor.'),
+ tile('5.3','Watching someone else’s computer','Untested: boat may only stream one VM to one viewer at a time. This is the fallback.',1,
+   `<div class="frame"><div class="lbl"><b>Batty's computer</b> · still frame</div><div class="perch">${ch('bat','calm','')}</div><div class="body">${desk()}</div><div class="over" style="background:rgba(23,20,15,.35)"><div>Kinjal is watching this one live<br><button class="b dark">Watch live instead</button></div></div></div>`,
+   'Parts: <code>frame</code> + <code>over</code>. Remove if two viewers work in the test.'),
+].join('');
+</script>
+</body>
+</html>

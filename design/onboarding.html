@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Casper · onboarding</title>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#121114; --panel:#17161a; --card:#1e1d22; --card-2:#26252b; --line:#2c2b32; --line-2:#3a3941;
+    --ink:#f1eff4; --ink-2:#b4b1bb; --ink-3:#7d7a85;
+    --pumpkin:#f58a33; --pumpkin-2:#ffb066; --violet:#9b87ff; --green:#58c47e;
+    --font:Satoshi,ui-sans-serif,system-ui,sans-serif; --mono:"Geist Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:400 14px/1.5 var(--font);-webkit-font-smoothing:antialiased}
+  button{font:inherit;color:inherit;cursor:pointer}
+  .app{display:grid;grid-template-columns:minmax(520px,46%) 1fr;height:100vh;min-height:760px}
+
+  /* ---------- the stage: your room filling in ---------- */
+  .stage{position:relative;overflow:hidden;border-right:1px solid var(--line);
+    background:radial-gradient(520px 340px at 50% 78%,rgba(245,138,51,.16),transparent 70%),radial-gradient(520px 360px at 80% 0%,rgba(155,135,255,.12),transparent 70%),
+      radial-gradient(circle at 1px 1px,rgba(255,255,255,.07) 1px,transparent 1.4px) 0 0/22px 22px,var(--bg)}
+  .stage h1{position:absolute;left:44px;top:40px;margin:0;font:700 44px/1.08 var(--font);letter-spacing:-.025em;max-width:440px;z-index:3}
+  .stage h1 em{font-style:normal;color:var(--pumpkin)}
+  .brand{position:absolute;left:44px;bottom:30px;display:flex;align-items:center;gap:8px;color:var(--ink-3);font-size:13px;z-index:3}
+  .brand span{width:22px;height:22px;display:block}
+  .roomtag{position:absolute;left:50%;top:36%;transform:translate(-50%,-50%);font:500 13px var(--mono);color:var(--ink-2);background:rgba(30,29,34,.85);border:1px dashed var(--line-2);border-radius:99px;padding:5px 14px;white-space:nowrap;transition:all .4s}
+  .roomtag b{color:var(--ink);font-weight:500}
+  .floor{position:absolute;left:50%;bottom:90px;width:420px;height:80px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(closest-side,rgba(245,138,51,.16),transparent)}
+  .people{position:absolute;left:50%;top:calc(36% + 34px);transform:translateX(-50%);display:flex;gap:-6px}
+  .pf{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font:700 12px var(--font);color:#fff;border:2px solid var(--bg);margin-left:-6px;animation:pop .35s ease-out both}
+  .pf:first-child{margin-left:0}
+  @keyframes pop{0%{transform:scale(.3);opacity:0}100%{transform:scale(1);opacity:1}}
+  .agent{position:absolute;left:50%;bottom:70px;width:230px;height:276px;transform:translateX(-50%);transition:opacity .4s,transform .5s cubic-bezier(.3,1.4,.5,1)}
+  .agent.hide{opacity:0;transform:translate(-50%,40px)}
+  .agent.dim{filter:saturate(.5) brightness(.75)}
+  .nametag{position:absolute;left:50%;top:-14px;transform:translateX(-50%);background:var(--card-2);border:1px solid var(--line-2);border-radius:10px;padding:4px 11px;font:700 13px var(--font);white-space:nowrap;display:flex;gap:6px;align-items:center}
+  .nametag small{font-weight:500;color:var(--ink-3)}
+  .nametag:empty{display:none}
+  .cord{position:absolute;left:50%;bottom:388px;transform:translateX(-50%);display:flex;flex-wrap:wrap;justify-content:center;gap:6px;max-width:420px;transition:opacity .3s}
+  .cord .c{font:500 12px var(--font);border-radius:99px;padding:3px 10px;background:rgba(245,138,51,.12);border:1px solid rgba(245,138,51,.4);color:var(--pumpkin-2)}
+  .cord .c.r{background:rgba(155,135,255,.12);border-color:rgba(155,135,255,.4);color:#c3b8ff}
+  .say{position:absolute;left:50%;bottom:372px;transform:translate(-50%,8px);max-width:300px;background:var(--card-2);border:1px solid var(--line-2);border-radius:16px 16px 16px 4px;padding:9px 13px;font-size:14px;color:var(--ink);opacity:0;transition:all .35s ease-out;white-space:normal;text-align:left}
+  .say.on{opacity:1;transform:translate(-50%,0)}
+  .status{position:absolute;left:50%;bottom:36px;transform:translateX(-50%);font:500 13px var(--font);color:var(--ink-2);display:flex;gap:8px;align-items:center;white-space:nowrap}
+  .status i{width:8px;height:8px;border-radius:50%;background:var(--ink-3)}
+  .status.wait i{background:#e9b949;animation:blink 1s infinite}
+  .status.ok{color:var(--green)}.status.ok i{background:var(--green)}
+  @keyframes blink{50%{opacity:.25}}
+
+  /* ---------- the panel ---------- */
+  .panel{display:grid;grid-template-rows:64px minmax(0,1fr) 76px;min-height:0;background:var(--panel);min-width:0}
+  .top{display:flex;align-items:center;justify-content:space-between;padding:0 32px}
+  .back{width:32px;height:32px;border-radius:8px;border:0;background:none;color:var(--ink-2);display:grid;place-items:center}
+  .back:hover{background:var(--card)}
+  .steps{display:flex;gap:6px;align-items:center}
+  .steps i{height:6px;width:6px;border-radius:99px;background:var(--line-2);transition:all .3s}
+  .steps i.done{background:var(--ink-3)}.steps i.on{width:22px;background:var(--pumpkin)}
+  .skip{font-size:13px;color:var(--ink-3);background:none;border:0}
+  .body{overflow:auto;padding:22px 56px 40px}
+  .body h2{font:700 28px/1.15 var(--font);letter-spacing:-.015em;margin:0 0 6px}
+  .body .lead{color:var(--ink-2);margin:0 0 26px;font-size:15px;max-width:560px}
+  .step{display:none;max-width:640px}.step.on{display:block;animation:in .35s ease-out}
+  @keyframes in{0%{opacity:0;transform:translateY(8px)}100%{opacity:1;transform:none}}
+  .bottom{display:flex;align-items:center;justify-content:space-between;padding:0 32px;border-top:1px solid var(--line)}
+  .hint{color:var(--ink-3);font-size:13px;display:flex;align-items:center;gap:7px}
+  .btn{height:42px;border-radius:12px;border:0;padding:0 18px;font:700 14px var(--font);display:inline-flex;align-items:center;gap:8px}
+  .btn.primary{background:var(--ink);color:#141218}.btn.primary:hover{background:#fff}
+  .btn.orange{background:var(--pumpkin);color:#1b1206}
+  .btn.ghost{background:var(--card);color:var(--ink);border:1px solid var(--line-2)}
+  .btn[disabled]{opacity:.4;cursor:default}
+
+  /* fields */
+  .field{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:12px}
+  .field label{display:block;font:700 14px var(--font);margin-bottom:2px}
+  .field .sub{color:var(--ink-3);font-size:13px;margin-bottom:10px}
+  .inp{width:100%;height:42px;background:var(--bg);border:1px solid var(--line-2);border-radius:10px;padding:0 12px;color:var(--ink);font:500 14px var(--font);outline:none}
+  .inp:focus{border-color:var(--pumpkin)}
+  .inp.mono{font-family:var(--mono);font-size:13px}
+  .row{display:flex;gap:10px;align-items:center}
+  .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .opt{background:var(--bg);border:1px solid var(--line-2);border-radius:12px;padding:12px;text-align:left}
+  .opt b{display:block;font-size:14px}.opt span{color:var(--ink-3);font-size:12px;line-height:1.35;display:block;margin-top:2px}
+  .opt.on{border-color:var(--pumpkin);background:rgba(245,138,51,.08)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{display:inline-flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--line-2);border-radius:99px;padding:5px 12px 5px 6px;font-size:13px}
+  .chip .pf{width:22px;height:22px;font-size:10px;border:0;margin:0;animation:none}
+  .chip small{color:var(--ink-3)}
+  .chip.tog{padding:7px 14px}
+  .chip.tog.on{border-color:var(--pumpkin);color:var(--pumpkin-2);background:rgba(245,138,51,.08)}
+
+  /* picker */
+  .pick{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .tile{position:relative;aspect-ratio:1/1.12;background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:8px 6px 26px;overflow:hidden}
+  .tile:hover{border-color:var(--line-2);background:var(--card-2)}
+  .tile.on{border-color:var(--pumpkin);background:rgba(245,138,51,.07)}
+  .tile .c{width:100%;height:100%}
+  .tile b{position:absolute;left:0;right:0;bottom:7px;text-align:center;font-size:12.5px}
+  .tile b small{color:var(--ink-3);font-weight:500}
+  .tile.mystery{display:grid;place-items:center;border-style:dashed;background:repeating-linear-gradient(135deg,rgba(245,138,51,.06) 0 10px,transparent 10px 20px),var(--card)}
+  .tile.mystery .q{font:900 54px var(--font);color:var(--pumpkin);text-shadow:0 0 30px rgba(245,138,51,.6)}
+  .tile.mystery.spin .q{animation:wob .5s ease-in-out infinite alternate}
+  @keyframes wob{0%{transform:rotate(-10deg) scale(.95)}100%{transform:rotate(10deg) scale(1.08)}}
+
+  /* rules */
+  .rule{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
+  .rule:first-of-type{border-top:0}
+  .rule .t{flex:1}.rule .t b{display:block;font-size:14px}.rule .t span{color:var(--ink-3);font-size:12.5px}
+  .sw{width:40px;height:23px;border-radius:99px;background:var(--line-2);position:relative;border:0;flex:none;transition:background .2s}
+  .sw::after{content:"";position:absolute;left:3px;top:3px;width:17px;height:17px;border-radius:50%;background:#fff;transition:transform .2s}
+  .sw.on{background:var(--pumpkin)}.sw.on::after{transform:translateX(17px)}
+
+  /* join */
+  pre.cmd{position:relative;background:var(--bg);border:1px solid var(--line-2);border-radius:12px;padding:14px 16px;margin:0;font:400 12.5px/1.65 var(--mono);color:var(--ink-2);white-space:pre;overflow-x:auto;padding-right:80px}
+  pre.cmd b{color:var(--pumpkin-2);font-weight:500}
+  .copy{position:absolute;right:10px;top:10px;height:30px;border-radius:8px;border:1px solid var(--line-2);background:var(--card);font:500 12px var(--font);padding:0 10px}
+  .checks{margin-top:14px;display:grid;gap:8px}
+  .ck{display:flex;align-items:center;gap:10px;color:var(--ink-3);font-size:13.5px}
+  .ck i{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--line-2);display:grid;place-items:center;flex:none;font-style:normal;font-size:11px}
+  .ck.ok{color:var(--ink)}.ck.ok i{background:var(--green);border-color:var(--green);color:#0e1a12}
+  .ck.wait i{border-color:#e9b949;border-top-color:transparent;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ---------- reveal ---------- */
+  .reveal{position:fixed;inset:0;z-index:20;display:none;overflow:hidden;
+    background:radial-gradient(700px 480px at 50% 72%,rgba(245,138,51,.32),transparent 70%),radial-gradient(800px 500px at 50% -10%,rgba(155,135,255,.25),transparent 70%),#100f12}
+  .reveal.on{display:block;animation:fade .5s ease-out}
+  @keyframes fade{0%{opacity:0}100%{opacity:1}}
+  .reveal .big{position:absolute;left:50%;bottom:120px;width:min(46vh,440px);height:min(56vh,530px);transform:translateX(-50%);z-index:2;animation:rise .9s cubic-bezier(.3,1.5,.5,1) .15s both}
+  @keyframes rise{0%{transform:translate(-50%,120px) scale(.8);opacity:0}100%{transform:translate(-50%,0) scale(1);opacity:1}}
+  .reveal .word{position:absolute;left:0;right:0;bottom:150px;text-align:center;font:900 min(26vw,300px)/.9 var(--font);letter-spacing:-.05em;color:rgba(241,239,244,.1);z-index:1;animation:fade 1s ease-out .3s both}
+  .reveal .say{position:absolute;left:0;right:0;top:9vh;text-align:center;z-index:3}
+  .reveal .say small{display:inline-flex;gap:8px;align-items:center;font:500 13px var(--font);color:var(--ink-2);background:rgba(30,29,34,.8);border:1px solid var(--line-2);border-radius:99px;padding:5px 14px}
+  .reveal .say small i{width:8px;height:8px;border-radius:50%;background:var(--green)}
+  .reveal .say h3{font:700 40px/1.1 var(--font);letter-spacing:-.02em;margin:16px 0 6px}
+  .reveal .say p{margin:0;color:var(--ink-2);font-size:16px}
+  .reveal .acts{position:absolute;left:0;right:0;bottom:44px;display:flex;justify-content:center;gap:10px;z-index:3}
+  .bats{position:absolute;inset:0;pointer-events:none;z-index:1}
+  .bats span{position:absolute;opacity:0;animation:fly 5s linear infinite}
+  @keyframes fly{0%{opacity:0;transform:translate(0,0)}10%{opacity:.7}100%{opacity:0;transform:translate(var(--x),-60vh) rotate(var(--r))}}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ============ STAGE ============ -->
+  <div class="stage">
+    <h1 id="headline"></h1>
+    <div class="floor"></div>
+    <div class="roomtag" id="roomtag"></div>
+    <div class="people" id="people"></div>
+    <div class="cord" id="cord"></div>
+    <div class="agent hide" id="agent"><div class="nametag" id="nametag"></div><div id="agentArt" style="width:100%;height:100%"></div></div>
+    <div class="say" id="say"></div>
+    <div class="status" id="status"></div>
+    <div class="brand"><span data-cast="casper" data-crop="head"></span>Casper</div>
+  </div>
+
+  <!-- ============ PANEL ============ -->
+  <div class="panel">
+    <div class="top">
+      <button class="back" id="back" aria-label="Back"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M10 3L5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <div class="steps" id="steps"></div>
+      <button class="skip" id="skip">Skip setup</button>
+    </div>
+
+    <div class="body">
+      <!-- 1. room -->
+      <section class="step" data-h="Start a room for <em>the work</em>, not the chat.">
+        <h2>Your first room</h2>
+        <p class="lead">A room is one project: its canvas, threads, and every agent working on it. People and agents you add here can see each other work.</p>
+        <div class="field"><label>Wing</label><div class="sub">Every team gets a wing of the manor. Only its members see inside its rooms.</div>
+          <div class="seg" id="spaceSeg">
+            <button class="opt on" data-v="Engineering"><b>Engineering</b><span>4 people</span></button>
+            <button class="opt" data-v="Growth"><b>Growth</b><span>3 people</span></button>
+            <button class="opt" data-v="New space"><b>+ New wing</b><span>for another team</span></button>
+          </div></div>
+        <div class="field"><label>Room name</label><div class="sub">Name it after the outcome.</div>
+          <input class="inp mono" id="roomName" value="autopay-launch" spellcheck="false"></div>
+        <div class="field"><label>Who’s in it</label><div class="sub">They’ll bring their own agents in too.</div>
+          <div class="chips" id="invited"></div>
+          <div class="row" style="margin-top:10px"><input class="inp" id="inviteInp" placeholder="Name or email" style="flex:1"><button class="btn ghost" id="inviteBtn">Invite</button></div></div>
+      </section>
+
+      <!-- 2. pick -->
+      <section class="step" data-h="Pick who shows up for <em>you</em>.">
+        <h2>Choose your agent’s look</h2>
+        <p class="lead">This is how your agent appears on the canvas. Its face shows how it’s doing: calm, stuck, waiting on you, asleep. Everyone in costume tonight.</p>
+        <div class="pick" id="pick"></div>
+      </section>
+
+      <!-- 3. yours -->
+      <section class="step" data-h="Make it <em>yours</em>.">
+        <h2>Name it, and say what it runs on</h2>
+        <p class="lead">Bring the agent you already use, or let Casper run one for you on its own computer.</p>
+        <div class="field"><label>Name</label><div class="sub">Teammates will @mention it.</div>
+          <div class="row"><input class="inp" id="agentName" value="Jack" style="flex:1"><button class="btn ghost" id="shuffle" title="Shuffle">↻ Shuffle</button></div></div>
+        <div class="field"><label>Runs on</label><div class="sub">You can bring more later.</div>
+          <div class="seg" id="runSeg">
+            <button class="opt on" data-v="Claude Code"><b>Claude Code</b><span>On your laptop, joins with one command</span></button>
+            <button class="opt" data-v="Codex"><b>Codex</b><span>On your laptop, joins with one command</span></button>
+            <button class="opt" data-v="Casper computer"><b>Its own computer</b><span>A cloud desktop anyone can watch and take over</span></button>
+          </div></div>
+      </section>
+
+      <!-- 4. voice -->
+      <section class="step" data-h="Pick how they <em>talk</em>.">
+        <h2>How should your agents talk to you?</h2>
+        <p class="lead" id="voiceLead">Casper and {name} write in this voice in threads and review cards. Teammates can pick their own, and you can change it per room.</p>
+        <div id="voice"></div>
+      </section>
+
+      <!-- 4. rules -->
+      <section class="step" data-h="Set the <em>house rules</em>.">
+        <h2>What it can do in this room</h2>
+        <p class="lead">These show on the cord between you and your agent, so everyone in the room can see them. It can never do more than you can.</p>
+        <div class="field">
+          <div class="rule"><div class="t"><b>Can read</b><span>Follows the room and answers questions, including from Kinjal</span></div><button class="sw on" data-r="read"></button></div>
+          <div class="rule"><div class="t"><b>Can act</b><span>Claims tasks, edits code, uses its computer</span></div><button class="sw on" data-r="act"></button></div>
+        </div>
+        <div class="field"><label>Asks first for</label><div class="sub">You get a card with the real evidence (the diff, the charge ids) and one tap to approve.</div>
+          <div class="chips" id="asks"><button class="chip tog on">Push to main</button><button class="chip tog on">Spend money</button><button class="chip tog on">Post publicly</button><button class="chip tog">Send email</button><button class="chip tog">Delete anything</button></div></div>
+        <div class="field"><label>Who approves</label><div class="sub">If you don’t answer in 10 minutes, it asks the next person.</div>
+          <div class="chips"><span class="chip"><span class="pf" style="background:#e2702f">S</span>You</span><span class="chip"><span class="pf" style="background:#6f5fa8">K</span>then Kinjal</span></div></div>
+      </section>
+
+      <!-- 5. join -->
+      <section class="step" data-h="Bring <em>{name}</em> into the room.">
+        <h2>Run this once in your terminal</h2>
+        <p class="lead">It connects your agent to Casper, so it can see the room, claim tasks and get messages. The pass only works in this room.</p>
+        <div class="field">
+          <pre class="cmd" id="cmd"></pre>
+          <div class="checks" id="checks">
+            <div class="ck" data-k="mcp"><i></i>Casper tools added</div>
+            <div class="ck" data-k="relay"><i></i>Messages connected (Relay)</div>
+            <div class="ck" data-k="hooks"><i></i>Activity shows on the canvas</div>
+          </div>
+        </div>
+        <p class="hint" style="margin-top:4px">Waiting for your agent. This page notices on its own.</p>
+      </section>
+    </div>
+
+    <div class="bottom">
+      <span class="hint" id="hint"></span>
+      <button class="btn primary" id="next">Continue <svg width="14" height="14" viewBox="0 0 16 16"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ REVEAL ============ -->
+<div class="reveal" id="reveal">
+  <div class="bats" id="bats"></div>
+  <div class="say"><small><i></i><span id="rvRoom"></span></small><h3 id="rvTitle"></h3><p id="rvSub"></p></div>
+  <div class="word" id="rvWord"></div>
+  <div class="big" id="rvBig"></div>
+  <div class="acts"><button class="btn ghost" id="rvShare">Invite Kinjal’s agent</button><button class="btn orange" id="rvGo">Enter the room →</button></div>
+</div>
+
+<script src="lab/cast.js"></script>
+<script src="lab/voice.js"></script>
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const CAST=[['pumpkin','Jack','skeleton'],['bat','Batty','witch'],['casper','Boo','vampire'],['candle','Wick','mummy'],['moon','Luna','monster'],['cat','Salem','devil']];
+const NAMES=['Jack','Pip','Moxie','Gourd','Hex','Nox','Bramble','Mort'];
+const S={step:0,space:'Engineering',room:'autopay-launch',people:[['Sankritya','#e2702f','you'],['Kinjal','#6f5fa8','Engineering']],kind:'pumpkin',name:'Jack',run:'Claude Code',read:true,act:true,joined:false};
+const steps=$$('.step'), N=steps.length;
+
+/* ---------- stage ---------- */
+let VX=null;
+function stage(){
+  const st=S.step;
+  $('#headline').innerHTML=steps[Math.min(st,N-1)].dataset.h.replace("{name}",S.name);
+  $('#roomtag').innerHTML=`acme manor / ${S.space.toLowerCase()} wing / <b>#${S.room||'…'}</b>`;
+  $('#people').innerHTML=S.people.map(([n,c])=>`<span class="pf" style="background:${c}" title="${n}">${n[0]}</span>`).join('');
+  const ag=$('#agent');
+  ag.classList.toggle('hide',st<1);
+  ag.classList.toggle('dim',st===5&&!S.joined);
+  const mood=st===5?(S.joined?'happy':'sleep'):st===4?'alert':st===3?'happy':'calm';
+  const key=S.kind+mood;
+  if($('#agentArt').dataset.k!==key){$('#agentArt').dataset.k=key;$('#agentArt').innerHTML=Cast.svg(S.kind,{mood});}
+  $('#nametag').innerHTML=st>=2?`${S.name}<small>· ${S.run}</small>`:'';
+  const asks=$$('#asks .on').map(b=>b.textContent);
+  $('#cord').style.opacity=st===4?1:0;
+  const say=$('#say');say.classList.toggle('on',st===3&&!!VX);if(st===3&&VX)say.textContent=VX.line('review');
+  $('#cord').innerHTML=(S.read?'<span class="c r">Can read</span>':'')+(S.act?'<span class="c r">Can act</span>':'')+asks.map(a=>`<span class="c">Asks first: ${a.toLowerCase()}</span>`).join('');
+  const s=$('#status');
+  s.className='status'+(st===5?(S.joined?' ok':' wait'):'');
+  s.innerHTML=st===5?(S.joined?`<i></i>${S.name} joined #${S.room}`:`<i></i>Waiting for ${S.name}…`):st>=1?`<i></i>${S.people.length} people · 1 agent`:`<i></i>${S.people.length} people`;
+}
+
+/* ---------- panel ---------- */
+function go(n){
+  S.step=Math.max(0,Math.min(n,N-1));
+  if(S.step===3&&VX){VX.refresh();$('#voiceLead').textContent=`Casper and ${S.name} write in this voice in threads and review cards. Teammates can pick their own, and you can change it per room.`;}
+  steps.forEach((s,i)=>s.classList.toggle('on',i===S.step));
+  $('#steps').innerHTML=steps.map((_,i)=>`<i class="${i<S.step?'done':i===S.step?'on':''}"></i>`).join('');
+  $('#back').style.visibility=S.step?'visible':'hidden';
+  const last=S.step===N-1;
+  $('#next').innerHTML=last?(S.joined?`Meet ${S.name} →`:'Waiting…'):'Continue <svg width="14" height="14" viewBox="0 0 16 16"><path d="M6 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  $('#next').disabled=last&&!S.joined;
+  $('#hint').textContent=['You can add more rooms later.','You can change the look anytime.','Agents keep their name across rooms.','Change it anytime in Settings → Agents.','Rules are per room. Change them on the cord.','Or use Codex: the same command works.'][S.step];
+  if(last) join();
+  stage();
+}
+$('#next').onclick=()=>S.step===N-1?reveal():go(S.step+1);
+$('#back').onclick=()=>go(S.step-1);
+$('#skip').onclick=()=>{S.joined=true;reveal()};
+
+// room
+$$('#spaceSeg .opt').forEach(b=>b.onclick=()=>{$$('#spaceSeg .opt').forEach(x=>x.classList.remove('on'));b.classList.add('on');S.space=b.dataset.v;stage()});
+$('#roomName').oninput=e=>{S.room=e.target.value.trim().toLowerCase().replace(/[^a-z0-9-]+/g,'-');stage()};
+const COLORS=['#3f8f8a','#b5557a','#6f8fc7','#8a7a3c'];
+function chips(){$('#invited').innerHTML=S.people.map(([n,c,r])=>`<span class="chip"><span class="pf" style="background:${c}">${n[0]}</span>${n}<small>${r}</small></span>`).join('')}
+$('#inviteBtn').onclick=()=>{const v=$('#inviteInp').value.trim();if(!v)return;const n=v.split('@')[0];S.people.push([n[0].toUpperCase()+n.slice(1),COLORS[S.people.length%4],'invited']);$('#inviteInp').value='';chips();stage()};
+$('#inviteInp').onkeydown=e=>{if(e.key==='Enter')$('#inviteBtn').click()};
+
+// pick
+$('#pick').innerHTML=CAST.map(([k,n,c],i)=>`<button class="tile${i===0?' on':''}" data-k="${k}" data-n="${n}"><div class="c">${Cast.svg(k)}</div><b>${n} <small>· ${c}</small></b></button>`).join('')+
+  `<button class="tile mystery" id="mystery"><span class="q">?</span><b>Trick or treat</b></button>`;
+function choose(k,n){S.kind=k;S.name=n;$('#agentName').value=n;$$('#pick .tile').forEach(t=>t.classList.toggle('on',t.dataset.k===k));stage()}
+$$('#pick .tile[data-k]').forEach(t=>t.onclick=()=>choose(t.dataset.k,t.dataset.n));
+$('#mystery').onclick=()=>{const m=$('#mystery');m.classList.add('spin');let i=0;const t=setInterval(()=>{const [k,n]=CAST[i++%CAST.length];choose(k,n)},120);
+  setTimeout(()=>{clearInterval(t);m.classList.remove('spin');const [k,n]=CAST[Math.floor(Math.random()*CAST.length)];choose(k,n)},1300)};
+
+// yours
+$('#agentName').oninput=e=>{S.name=e.target.value.trim()||'Agent';stage()};
+$('#shuffle').onclick=()=>{S.name=NAMES[Math.floor(Math.random()*NAMES.length)];$('#agentName').value=S.name;stage()};
+$$('#runSeg .opt').forEach(b=>b.onclick=()=>{$$('#runSeg .opt').forEach(x=>x.classList.remove('on'));b.classList.add('on');S.run=b.dataset.v;stage()});
+
+// rules
+$$('.sw').forEach(b=>b.onclick=()=>{b.classList.toggle('on');S[b.dataset.r]=b.classList.contains('on');stage()});
+$$('#asks .tog').forEach(b=>b.onclick=()=>{b.classList.toggle('on');stage()});
+
+// join
+function cmdText(){
+  if(S.run==='Casper computer') return `<span style="color:var(--ink-3)"># Nothing to run. Casper is starting ${S.name}’s computer…</span>`;
+  const tool=S.run==='Codex'?'codex mcp add':'claude mcp add';
+  return `<b>npx casper knock</b> ${S.room} --as ${S.name.toLowerCase()}\n<span style="color:var(--ink-3)"># or by hand:</span>\n<b>${tool}</b> casper https://casper.dev/mcp --header "Authorization: Bearer cp_room_7f2a…"`;
+}
+let timers=[];
+function join(){
+  $('#cmd').innerHTML=cmdText()+'<button class="copy" onclick="this.textContent=\'Copied\'">Copy</button>';
+  if(S.joined)return;
+  timers.forEach(clearTimeout);timers=[];
+  const cks=$$('.ck');cks.forEach(c=>c.className='ck');
+  cks.forEach((c,i)=>{timers.push(setTimeout(()=>c.classList.add('wait'),1200+i*900));timers.push(setTimeout(()=>{c.classList.remove('wait');c.classList.add('ok');c.querySelector('i').textContent='✓'},2000+i*900))});
+  timers.push(setTimeout(()=>{if(S.step!==N-1)return;S.joined=true;go(N-1)},2000+cks.length*900));
+}
+
+/* ---------- reveal ---------- */
+function reveal(){
+  $('#rvRoom').textContent=`acme manor / ${S.space.toLowerCase()} wing / #${S.room}`;
+  $('#rvTitle').textContent=`${S.name} is in the room.`;
+  $('#rvSub').textContent=`Kinjal can see it, ask it why, and approve its work. It already sees 3 open tasks.`;
+  $('#rvWord').textContent=S.name;
+  $('#rvBig').innerHTML=Cast.svg(S.kind,{mood:'happy'});
+  $('#bats').innerHTML=Array.from({length:10},(_,i)=>`<span style="left:${8+i*9}%;bottom:${10+(i%3)*8}%;--x:${(i%2?1:-1)*(40+i*8)}px;--r:${(i%2?1:-1)*30}deg;animation-delay:${i*.45}s"><svg width="26" height="14" viewBox="0 0 26 14"><path d="M13 4c1-2 2-2 2-2l1 2c3-3 7-4 10-3-2 1-3 3-3 6-2-1-4-1-5 1-1-1-2-1-3 0l-2 0c-1-1-2-1-3 0-1-2-3-2-5-1 0-3-1-5-3-6 3-1 7 0 10 3l1-2s1 0 2 2z" fill="#9b87ff"/></svg></span>`).join('');
+  $('#reveal').classList.add('on');
+}
+$('#rvGo').onclick=()=>location.href='app-v2.html';
+$('#rvShare').onclick=e=>e.target.textContent='Invite link copied';
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#reveal').classList.remove('on')});
+
+VX=Voice.mount($('#voice'),{agent:()=>({name:S.name,kind:S.kind}),onChange:()=>stage()});
+chips(); go(0); Cast.mountAll();
+</script>
+</body>
+</html>

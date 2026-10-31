@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Casper · which feels right</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Inter:opsz,wght@14..32,400..700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box} body{margin:0;background:#151517;color:#eee;font-family:system-ui;padding:24px}
+.cols{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;max-width:1500px;margin:0 auto}
+.cap{font:600 13px system-ui;color:#ddd;margin:0 0 4px;min-height:44px}.st{white-space:nowrap}.cap small{display:block;font-weight:400;color:#888;margin-top:2px;line-height:1.4}
+.v{border-radius:14px;overflow:hidden;height:600px;margin-top:10px;position:relative}
+.ic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-size:11px;font-weight:600;color:#fff;flex:none}
+.tg{width:30px;height:18px;border-radius:99px;position:relative;flex:none}.tg::after{content:"";position:absolute;top:2px;left:14px;width:14px;height:14px;border-radius:50%;background:#fff}
+
+/* 0 · current */
+.v0{background:#2a2a2e;font-family:Geist;font-weight:400;font-size:13px;color:#ededf0;padding:22px 20px}
+.v0 h2{font:500 20px Geist;letter-spacing:-.015em;margin:0}.v0 .lead{color:#7c7b84;margin:4px 0 16px;font-size:13px;line-height:1.5}
+.v0 .sh{font:500 13.5px Geist;margin:0 0 8px}
+.v0 .box{background:#303034;border-radius:12px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.v0 .r{display:flex;gap:11px;align-items:center;padding:11px 12px;border-top:1px solid rgba(255,255,255,.07)}.v0 .r:first-child{border:0}
+.v0 .r b{font-weight:500}.v0 .r .s{color:#7c7b84;font-size:12px}.v0 .st{color:#a9a8b0;font-size:12px;margin-left:auto}
+.v0 .bt{font:500 12.5px Geist;padding:5px 10px;border-radius:8px;background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.v0 .tg{background:#5fcf86}
+
+/* 1 · native mac */
+.v1{background:#1e1e1e;font:13px -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui;color:#f5f5f7;padding:22px 20px}
+.v1 h2{font:700 22px -apple-system,"SF Pro Display",system-ui;letter-spacing:-.02em;margin:0}
+.v1 .lead{color:#98989d;margin:4px 0 18px;line-height:1.45}
+.v1 .sh{font-weight:600;font-size:13px;color:#f5f5f7;margin:0 0 8px}
+.v1 .box{background:#2c2c2e;border-radius:10px}
+.v1 .r{display:flex;gap:11px;align-items:center;padding:10px 12px;position:relative}
+.v1 .r+.r::before{content:"";position:absolute;left:53px;right:0;top:0;height:.5px;background:#48484a}
+.v1 .r b{font-weight:500}.v1 .r .s{color:#98989d;font-size:12px}.v1 .st{color:#98989d;font-size:12px;margin-left:auto}
+.v1 .bt{font-weight:500;font-size:12.5px;padding:4px 11px;border-radius:6px;background:#48484a}
+.v1 .tg{background:#30d158}
+
+/* 2 · sharper, flatter */
+.v2{background:#202023;font-family:Inter;font-size:13px;font-weight:450;color:#f2f2f4;padding:22px 20px;font-feature-settings:"cv11","ss01"}
+.v2 h2{font:600 21px Inter;letter-spacing:-.022em;margin:0}
+.v2 .lead{color:#a0a0a8;margin:5px 0 18px;line-height:1.5}
+.v2 .sh{font-weight:600;font-size:12px;color:#a0a0a8;margin:18px 0 2px}
+.v2 .box{border-top:1px solid #333338}
+.v2 .r{display:flex;gap:12px;align-items:center;padding:12px 2px;border-bottom:1px solid #333338}
+.v2 .r b{font-weight:550}.v2 .r .s{color:#8d8d95;font-size:12.5px}.v2 .st{color:#c4c4cb;font-size:12.5px;margin-left:auto}
+.v2 .bt{font-weight:550;font-size:12.5px;padding:5px 11px;border-radius:8px;border:1px solid #3c3c42}
+.v2 .tg{background:#f2f2f4}.v2 .tg::after{background:#202023}
+
+/* 3 · with character */
+.v3{background:#1f1d1b;font-family:Inter;font-size:13px;font-weight:450;color:#f3efe9;padding:22px 20px}
+.v3 h2{font:400 32px/1 "Instrument Serif";letter-spacing:-.01em;margin:0}.v3 h2 i{color:#f08a45}
+.v3 .lead{color:#a39d95;margin:8px 0 18px;line-height:1.5}
+.v3 .sh{font-weight:600;font-size:12px;color:#a39d95;margin:0 0 8px}
+.v3 .box{background:#282523;border-radius:12px;box-shadow:inset 0 0 0 1px #34302c}
+.v3 .r{display:flex;gap:12px;align-items:center;padding:11px 12px;border-top:1px solid #34302c}.v3 .r:first-child{border:0}
+.v3 .r b{font-weight:550}.v3 .r .s{color:#8f8981;font-size:12.5px}.v3 .st{color:#c9c2b8;font-size:12.5px;margin-left:auto}
+.v3 .bt{font-weight:550;font-size:12.5px;padding:5px 11px;border-radius:8px;background:#f3efe9;color:#1f1d1b}
+.v3 .tg{background:#f08a45}
+.v3 .ghost{position:absolute;right:18px;top:16px;width:44px;height:44px}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:1px}
+</style></head><body>
+<div class="cols" id="cols"></div>
+<script>
+const rows=[["GH","#24292f","GitHub","acme/app, acme/api","Connected"],["Z","#2d8cff","Zoom","Transcripts from eng meetings","Connected"],["S","#4a154b","Slack","Posts to #eng-updates","Connected"],["M","#c5221f","Gmail","Login on Wick’s computer","Via login"]];
+const caps=[["Now","Geist, regular weight, grey on charcoal, cards inside a panel"],["1 · Native Mac","Apple’s system font and macOS Settings layout. Feels like a real Mac app"],["2 · Sharper and flatter","Inter, a bit heavier and brighter. No inner cards, just lines"],["3 · With character","Serif headline, warm charcoal, pumpkin accent, the ghost is back"]];
+const ghost=`<svg class="ghost" viewBox="0 0 120 120"><circle cx="60" cy="48" r="30" fill="#0e0d0c"/><path fill="#0e0d0c" d="M30 56 C30 84 44 102 62 108 C74 112 86 106 92 98 C84 100 76 96 74 88 C86 76 90 62 88 52 Z"/><ellipse cx="50" cy="44" rx="4.5" ry="6.5" fill="#f5cd63"/><ellipse cx="70" cy="44" rx="4.5" ry="6.5" fill="#f5cd63"/></svg>`;
+document.getElementById('cols').innerHTML=[0,1,2,3].map(i=>`<div><p class="cap">${caps[i][0]}<small>${caps[i][1]}</small></p><div class="v v${i}">
+ ${i===3?ghost:''}<h2>${i===3?'Connec<i>tions</i>':'Connections'}</h2><p class="lead">Apps this space uses, and which agents may touch each one.</p>
+ <p class="sh">Connected</p><div class="box">${rows.map(r=>`<div class="r"><span class="ic" style="background:${r[1]}">${r[0]}</span><div><b>${r[2]}</b><div class="s">${r[3]}</div></div><span class="st"><span class="dot" style="background:${r[4]==='Via login'?'#f08a45':'#5fcf86'}"></span>${r[4]}</span></div>`).join('')}</div>
+ <p class="sh" style="margin-top:20px">Rules</p><div class="box"><div class="r"><div><b>Push to main asks the owner</b><div class="s">Jack and Batty</div></div><span style="margin-left:auto" class="tg"></span></div><div class="r"><div><b>Move money</b><div class="s">Any space Owner</div></div><span style="margin-left:auto" class="tg"></span></div></div>
+ <div style="margin-top:18px;display:flex;gap:8px"><span class="bt">Connect an app</span></div>
+</div></div>`).join('');
+</script></body></html>

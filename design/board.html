@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Casper · design board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --night:oklch(0.150 0.014 295); --crypt:oklch(0.185 0.016 295); --raised:oklch(0.230 0.018 295); --well:oklch(0.170 0.014 295);
+    --hair:oklch(0.96 0.01 80 / 0.07); --hair-2:oklch(0.96 0.01 80 / 0.12);
+    --bone:oklch(0.950 0.010 80); --bone-2:oklch(0.80 0.012 80); --bone-3:oklch(0.66 0.012 80);
+    --ink:oklch(0.2 0.03 262);
+    --candle:oklch(0.76 0.16 58); --candle-glow:oklch(0.76 0.16 58 / .45); --candle-wash:oklch(0.76 0.16 58 / .12);
+    --pri-bg:oklch(0.95 0.010 80); --pri-fg:oklch(0.17 0.014 295);
+    /* auras: three tones each */
+    --ecto-1:oklch(0.86 0.09 165); --ecto-2:oklch(0.78 0.10 190); --ecto-3:oklch(0.92 0.06 140);
+    --jack-1:oklch(0.78 0.14 60);  --jack-2:oklch(0.68 0.15 40);  --jack-3:oklch(0.86 0.10 85);
+    --dusk-1:oklch(0.72 0.09 290); --dusk-2:oklch(0.66 0.10 270); --dusk-3:oklch(0.80 0.06 310);
+    --juice-1:oklch(0.84 0.15 125);--juice-2:oklch(0.62 0.13 300);--juice-3:oklch(0.90 0.08 110);
+    --moon-1:oklch(0.72 0.05 250); --moon-2:oklch(0.62 0.06 265); --moon-3:oklch(0.82 0.04 230);
+    --ember-1:oklch(0.76 0.11 50); --ember-2:oklch(0.68 0.12 30); --ember-3:oklch(0.84 0.08 70);
+    --brass-1:oklch(0.80 0.075 78);--brass-2:oklch(0.72 0.08 60); --brass-3:oklch(0.86 0.06 95);
+    --bonea-1:oklch(0.92 0.02 80); --bonea-2:oklch(0.80 0.03 70); --bonea-3:oklch(0.96 0.01 90);
+    --serif:"Newsreader","Iowan Old Style",Georgia,serif;
+    --sans:"Instrument Sans",ui-sans-serif,system-ui,-apple-system,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+    --ease-out:cubic-bezier(0.2,0,0,1); --ease-expo:cubic-bezier(0.16,1,0.3,1); --ease-in:cubic-bezier(0.4,0,1,1); --ease-breathe:cubic-bezier(0.45,0,0.55,1);
+    --spring:cubic-bezier(.3,1.4,.5,1); --ease:var(--ease-expo);
+  }
+  html,body{margin:0}
+  body.standalone{background:oklch(0.12 0.012 295);padding:48px 24px}
+  .board{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:20px;font-family:var(--sans);color:var(--bone)}
+  .sec{background:var(--night);border:1px solid var(--hair);border-radius:22px;padding:24px;position:relative;overflow:hidden}
+  .sec::before{content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(800px 320px at 85% -10%,oklch(0.86 0.09 165 / .05),transparent 60%)}
+  .eyebrow{font-size:14px;font-weight:500;color:var(--bone-3)}
+  h1{font-family:var(--serif);font-weight:400;font-size:48px;line-height:1.04;margin:8px 0 12px;letter-spacing:-.02em}
+  h2{font-family:var(--serif);font-weight:400;font-size:34px;line-height:1.05;margin:6px 0 8px;letter-spacing:-.015em}
+  p.lede{color:var(--bone-2);font-size:15.5px;line-height:1.55;margin:0;max-width:60ch}
+  .idx{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px}
+  .idx span{font-size:13px;padding:6px 11px;border-radius:999px;border:1px solid var(--hair-2);color:var(--bone-2)}
+  .idx span.on{background:var(--pri-bg);color:var(--pri-fg);border-color:transparent}
+  .idx span.next{opacity:.45}
+
+  /* ---------- agents ---------- */
+  .agent{position:relative;display:inline-block;width:var(--s,96px);height:var(--s,96px)}
+  .agent svg{width:100%;height:100%;overflow:visible;display:block}
+  .agent .float{animation:float 3.2s var(--ease-breathe) infinite;animation-delay:var(--d,0s)}
+  .agent .body{animation:breathe 4.2s var(--ease-breathe) infinite;animation-delay:var(--d,0s);transform-box:fill-box;transform-origin:50% 100%}
+  .agent .shape{filter:drop-shadow(0 0 calc(var(--glow,10px)) var(--a1)) drop-shadow(0 1px 1.5px var(--a2));transition:filter .38s var(--ease-out),opacity .38s}
+  .agent .shape :is(path,ellipse){stroke:var(--a3);stroke-width:1.1;stroke-opacity:.55}
+  .agent .floor{fill:var(--a1);opacity:.3;filter:blur(5px);animation:floor 3.2s var(--ease-breathe) infinite;animation-delay:var(--d,0s);transform-box:fill-box;transform-origin:center}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+  @keyframes breathe{0%,100%{transform:scale(1,1)}50%{transform:scale(1.018,.985)}}
+  @keyframes floor{0%,100%{transform:scaleX(1);opacity:.3}50%{transform:scaleX(.84);opacity:.2}}
+
+  .eye .gaze{transform:translate(calc(var(--gx,0)*1px),calc(var(--gy,0)*1px));transition:transform .24s var(--ease-out),opacity .12s}
+  .eye .pupil{transform-box:fill-box;transform-origin:center;transition:transform .16s var(--ease-out)}
+  .eye .lid,.eye .happy,.eye .half,.eye .brow,.eye :is(.brow-up,.brow-in,.brow-soft){opacity:0;transition:opacity .16s}
+  .mouth path{opacity:0;transition:opacity .2s}
+  .agent.blink .eye .pupil{transform:scaleY(.08)!important;transition-duration:.09s}
+
+  /* idle: closed soft arcs, small smile */
+  .agent[data-state=idle] .eye .gaze{opacity:0}
+  .agent[data-state=idle] .eye .lid{opacity:1}
+  .agent[data-state=idle] .m-smile-s{opacity:1}
+  .agent[data-state=idle]{--glow:6px}
+  /* listening: open dots follow the pointer */
+  .agent[data-state=listening] .m-neutral{opacity:1}
+  .agent[data-state=listening]{--glow:9px}
+  /* thinking: eyes up and to one side, slow orbit, one brow up */
+  .agent[data-state=thinking] .eye .gaze{animation:ponder 2.4s var(--ease-breathe) infinite}
+  .agent[data-state=thinking] .brow-up{opacity:1}
+  .agent[data-state=thinking] .m-flat{opacity:1}
+  .agent[data-state=thinking] .bubble{opacity:1}
+  .agent[data-state=thinking]{--glow:10px}
+  @keyframes ponder{0%,100%{transform:translate(-2.6px,-2.8px)}50%{transform:translate(2.2px,-3.2px)}}
+  /* working: focus capsules looking down into the VM, tiny bob per action */
+  .agent[data-state=working] .eye .gaze{animation:scan 2.4s steps(1,end) infinite}
+  .agent[data-state=working] .eye .pupil{transform:scale(1.05,.62)}
+  .agent[data-state=working] .brow-in{opacity:1}
+  .agent[data-state=working] .m-tight{opacity:1}
+  .agent[data-state=working]{--glow:13px}
+  .agent[data-state=working] .body{animation:bob 1.2s var(--ease-expo) infinite}
+  @keyframes scan{0%{transform:translate(-1.4px,3px)}30%{transform:translate(1.8px,3.4px)}55%{transform:translate(.4px,2.6px)}80%{transform:translate(2.6px,3.2px)}}
+  @keyframes bob{0%,100%{transform:scale(1,1)}10%{transform:scale(1.04,.95)}22%{transform:scale(1,1)}}
+  /* sending: eyes to the recipient, mouth o, squash */
+  .agent[data-state=sending] .eye .gaze{transform:translate(3.2px,-.6px)}
+  .agent[data-state=sending] .m-o{opacity:1}
+  .agent[data-state=sending] .body{animation:send .32s var(--ease-in) both}
+  @keyframes send{0%{transform:scale(1,1)}50%{transform:scale(1.12,.86)}100%{transform:scale(1,1) rotate(3deg)}}
+  /* receiving: perk */
+  .agent[data-state=receiving] .eye .pupil{transform:scale(1.3)}
+  .agent[data-state=receiving] .m-neutral{opacity:1}
+  .agent[data-state=receiving] .aring{animation:aring .9s var(--ease-expo) both}
+  @keyframes aring{0%{opacity:.8;transform:scale(.6)}100%{opacity:0;transform:scale(1.9)}}
+  /* needs you: looks out at you, brows soft-raised, candle lamp */
+  .agent[data-state=needs] .eye .gaze{transform:translate(0,-1px)}
+  .agent[data-state=needs] .eye .pupil{transform:scale(1.12)}
+  .agent[data-state=needs] .brow-soft{opacity:1}
+  .agent[data-state=needs] .m-neutral{opacity:1}
+  .agent[data-state=needs]{--glow:20px}
+  .agent[data-state=needs] .ring{opacity:1;animation:ring 2.4s var(--ease-breathe) infinite}
+  .agent[data-state=needs] .lamp{opacity:1}
+  @keyframes ring{0%,100%{opacity:.85;stroke-width:1.5}50%{opacity:.35;stroke-width:4.5}}
+  /* done: happy arcs, smile, a hop */
+  .agent[data-state=done] .eye .gaze{opacity:0}
+  .agent[data-state=done] .eye .happy{opacity:1}
+  .agent[data-state=done] .m-smile{opacity:1}
+  .agent[data-state=done] .body{animation:hop 2.2s var(--ease-expo) infinite}
+  .agent[data-state=done] .blush{opacity:.4}
+  @keyframes hop{0%,40%,100%{transform:translateY(0) scale(1,1)}5%{transform:translateY(0) scale(1.08,.9)}18%{transform:translateY(-12px) scale(.96,1.05)}30%{transform:translateY(0) scale(1.08,.9)}}
+  /* stuck: worried brows, smaller eyes, frown; light drops, no shake */
+  .agent[data-state=spooked] .eye .pupil{transform:scale(.8)}
+  .agent[data-state=spooked] .eye .brow{opacity:1}
+  .agent[data-state=spooked] .m-frown{opacity:1}
+  .agent[data-state=spooked]{--glow:5px}
+  .agent[data-state=spooked] .shape{filter:saturate(.35) drop-shadow(0 0 5px var(--a1))}
+  /* paused */
+  .agent[data-state=asleep] .eye .gaze{opacity:0}
+  .agent[data-state=asleep] .eye .half{opacity:1}
+  .agent[data-state=asleep]{--glow:2px}
+  .agent[data-state=asleep] .shape{opacity:.75}
+  .agent[data-state=asleep] .float,.agent[data-state=asleep] .floor{animation:none}
+  .agent[data-state=asleep] .zzz{opacity:1}
+
+  .ring{opacity:0;fill:none;stroke:var(--candle);stroke-width:1.5}
+  .aring{opacity:0;fill:none;stroke:var(--from,var(--a1));stroke-width:2;transform-box:fill-box;transform-origin:center}
+  .lamp{opacity:0;transition:opacity .2s}
+  .bubble{opacity:0;transition:opacity .2s}
+  .bubble circle{fill:var(--bone-2);animation:dots 1.2s infinite}
+  .bubble circle:nth-child(2){animation-delay:.15s}.bubble circle:nth-child(3){animation-delay:.3s}
+  @keyframes dots{0%,100%{opacity:.25}50%{opacity:1}}
+  .zzz{opacity:0;font-family:var(--serif);font-style:italic;font-size:14px;fill:var(--bone-3)}
+  .zzz text{animation:z 2.4s ease-in-out infinite}
+  .zzz text:nth-child(2){animation-delay:.8s}
+  @keyframes z{0%{opacity:0;transform:translate(0,0)}30%{opacity:1}100%{opacity:0;transform:translate(6px,-12px)}}
+  .blush{opacity:0;transition:opacity .3s}
+    .flame{transform-box:fill-box;transform-origin:50% 100%;animation:flick .18s ease-in-out infinite alternate}
+  @keyframes flick{0%{transform:scale(1,1) skewX(0)}100%{transform:scale(.92,1.08) skewX(3deg)}}
+  .wing-l{transform-box:fill-box;transform-origin:100% 50%;animation:flapL .5s ease-in-out infinite alternate}
+  .wing-r{transform-box:fill-box;transform-origin:0% 50%;animation:flapR .5s ease-in-out infinite alternate}
+  @keyframes flapL{to{transform:rotate(14deg) scaleY(.86)}}
+  @keyframes flapR{to{transform:rotate(-14deg) scaleY(.86)}}
+  .wing-l,.wing-r{animation-play-state:paused}
+  .agent:is([data-state=sending],[data-state=working],[data-state=needs],[data-state=done]) :is(.wing-l,.wing-r){animation-play-state:running}
+  .hem{animation:hem 3.2s var(--ease-breathe) infinite}
+  @keyframes hem{0%,100%{d:path("M22 97 Q29 106 35.5 97 Q42 88 48 97 Q54 106 60 97 Q66 88 72 97 Q78 106 84.5 97 Q91 88 98 97")}50%{d:path("M22 96 Q29 88 35.5 97 Q42 106 48 97 Q54 88 60 97 Q66 106 72 97 Q78 88 84.5 97 Q91 106 98 96")}}
+  @media (prefers-reduced-motion:reduce){.agent *{animation:none!important}}
+
+  /* ---------- cast grid ---------- */
+  .cast{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:18px}
+  .card{background:var(--crypt);border:1px solid var(--hair);border-radius:14px;padding:14px 14px 12px;display:flex;flex-direction:column;gap:3px;transition:border-color .2s,transform .3s var(--spring);cursor:pointer}
+  .card:hover{border-color:var(--hair-2);transform:translateY(-2px)}
+  .card .stage{height:118px;display:grid;place-items:center;margin-bottom:6px;border-radius:10px;background:radial-gradient(70% 70% at 50% 60%,oklch(0.96 0.01 80 / .035),transparent 70%)}
+  .card b{font-family:var(--serif);font-size:22px;font-weight:400;line-height:1.1}
+  .card .role{font-size:14px;line-height:1.4;color:var(--bone-2)}
+  .card .who{font-size:13px;color:var(--bone-3);margin-top:8px;display:flex;align-items:center;gap:6px}
+  .card .who i{width:8px;height:8px;border-radius:50%;background:var(--a1);box-shadow:0 0 8px var(--a1)}
+
+  /* ---------- states ---------- */
+  .states{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-top:18px}
+  @media (max-width:700px){.states{grid-template-columns:1fr}}
+  .hero{background:var(--crypt);border:1px solid var(--hair);border-radius:14px;padding:16px;display:flex;flex-direction:column;align-items:center;gap:14px}
+  .hero .stage{height:200px;width:100%;display:grid;place-items:center;position:relative}
+  .hero .caption{font-size:15px;color:var(--bone-2);text-align:center;min-height:38px;max-width:36ch;line-height:1.45}
+  .hero .caption b{color:var(--bone)}
+  .pills{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+  .pills button{font:500 13px var(--sans);color:var(--bone-2);background:transparent;border:1px solid var(--hair-2);border-radius:999px;padding:6px 11px;cursor:pointer;transition:all .15s}
+  .pills button:hover{color:var(--bone)}
+  .pills button.on{background:var(--pri-bg);color:var(--pri-fg);border-color:transparent}
+  .vocab{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;align-content:start}
+  .vocab .v{background:var(--crypt);border:1px solid var(--hair);border-radius:12px;padding:10px 8px 9px;text-align:center;cursor:pointer}
+  .vocab .v.on{border-color:var(--hair-2);background:var(--raised)}
+  .vocab .v b{display:block;font-size:14px;font-weight:600;margin-top:4px}
+  .vocab .v span{display:block;font-size:13px;color:var(--bone-3);line-height:1.35;margin-top:2px}
+
+  /* ---------- relay strip ---------- */
+  .relay{margin-top:18px;background:var(--crypt);border:1px solid var(--hair);border-radius:14px;padding:14px;position:relative}
+  .relay .lane{position:relative;height:196px}
+  .relay .a{position:absolute;top:44px}
+  .relay .a.l{left:4%}.relay .a.r{right:4%}
+  .relay svg.path{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+  .relay .label{position:absolute;font-size:13px;color:var(--bone-3);bottom:2px;width:100%;text-align:center}
+  .relay .tag{position:absolute;top:128px;font-size:15px;font-family:var(--serif);text-align:center;width:120px}
+  .relay .tag small{display:block;font-family:var(--sans);font-size:13px;color:var(--bone-3)}
+  .letter{position:absolute;left:0;top:0;transform:translate(-50%,-50%);pointer-events:none;opacity:0}
+  .letter .env{background:var(--raised);color:var(--bone);font:500 13px var(--sans);padding:7px 11px;border-radius:11px;white-space:nowrap;border:1px solid var(--from);box-shadow:0 0 16px var(--from),0 22px 48px -18px oklch(0 0 0 / .55);display:flex;gap:6px;align-items:center}
+  .letter .env em{font-style:normal;font-size:13px;color:var(--bone-3)}
+
+  .rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:16px}
+  .rules div b{font-size:15px;font-weight:600;display:block;margin-bottom:4px}
+  .rules div p{margin:0;font-size:14px;color:var(--bone-2);line-height:1.5}
+  .note{font-size:13px;color:var(--bone-3);margin-top:12px;line-height:1.5}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <radialGradient id="pearl" cx="36%" cy="28%" r="80%">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".45" stop-color="#eef0f7"/>
+      <stop offset=".8" stop-color="#cfd4e3"/>
+      <stop offset="1" stop-color="#aab1c6"/>
+    </radialGradient>
+    <linearGradient id="flameG" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#FF8A3D"/><stop offset=".55" stop-color="#FFC857"/><stop offset="1" stop-color="#FFF4C8"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="board">
+
+  <section class="sec">
+    <div class="eyebrow">Casper design board, Haunted Hacks, Oct 31</div>
+    <h1>The friendly ghosts<br>who work together.</h1>
+    <p class="lede">A shared, live room where your agents and your team's agents work side by side. This board grows one section at a time. It starts with the cast, because every screen after this is built out of them.</p>
+    <div class="idx">
+      <span class="on">01 Cast</span><span class="on">02 Faces and states</span><span class="on">03 A message in flight</span>
+      <span class="next">04 Onboarding</span><span class="next">05 Hatch your agent</span><span class="next">06 Invite agents</span>
+      <span class="next">07 Workspace A, live chat</span><span class="next">08 Workspace B, canvas</span><span class="next">09 Workspace C, haunted house</span><span class="next">10 Agent on its VM</span>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="eyebrow">01 The cast</div>
+    <h2>One material, eight silhouettes.</h2>
+    <p class="lede">The same rules as Juno's agents. Every agent is the same matte pearl, lit the same way, with the same eyes. Only the silhouette and the aura change. Hover a card to wake one up, click it to make it happy.</p>
+    <div class="cast" id="cast"></div>
+  </section>
+
+  <section class="sec">
+    <div class="eyebrow">02 Faces and states</div>
+    <h2>The eyes carry the state.</h2>
+    <p class="lede">One set of states for every agent, made from Juno's dot eyes plus Locked In's brows and a one-stroke mouth. In <b>Listening</b>, the eyes follow your cursor. Pick an agent and a state to see it.</p>
+    <div class="states">
+      <div class="hero">
+        <div class="stage"><div id="heroAgent"></div></div>
+        <div class="pills" id="kindPills"></div>
+        <div class="caption" id="caption"></div>
+      </div>
+      <div class="vocab" id="vocab"></div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="eyebrow">03 A message in flight, over Agent Relay</div>
+    <h2>You can watch them talk.</h2>
+    <p class="lede">Every Relay message is drawn as the real note, flying from one agent to the other along an arc in the sender's colour. The sender squashes and watches it go. The receiver tracks it, perks up when it lands, and a ring in the sender's colour spreads. A faint trail stays, so the room shows who has been talking to whom.</p>
+    <div class="relay">
+      <div class="lane" id="lane">
+        <svg class="path" id="arcSvg"></svg>
+        <div class="a l" id="aL"></div>
+        <div class="a r" id="aR"></div>
+        <div class="tag" id="tagL"></div>
+        <div class="tag" id="tagR"></div>
+        <div class="letter" id="letter"><div class="env"><span id="letterText"></span><em></em></div></div>
+        <div class="label" id="relayLabel"></div>
+      </div>
+    </div>
+    <div class="rules">
+      <div><b>Same stuff, own shape.</b><p>The pearl and the eyes never change. You can tell agents apart by outline and aura alone, from 16 px up.</p></div>
+      <div><b>One aura per agent.</b><p>Three tones of one hue. It's the agent's colour everywhere: its glow, its notes, its trail, its cursor on the canvas and its VM frame.</p></div>
+      <div><b>Eyes carry state.</b><p>Ten states, the same on every agent. Only <i>Needs you</i> lights the candle accent, because it's the only state that wants a human.</p></div>
+      <div><b>Halloween through shape and light.</b><p>Sheets, pumpkins, candles, bats, a moon. No cobwebs, spooky fonts, blood or props. The shape is the body.</p></div>
+    </div>
+    <p class="note">Plain SVG and CSS, so the same faces drop into the app with no animation library. One <code>data-state</code> attribute drives the whole face.</p>
+  </section>
+
+</div>
+
+<script>
+if (window.top === window.self) document.body.classList.add('standalone');
+
+/* ---------- face parts ---------- */
+const eye = (x,y) => {
+  const L = x<60;
+  return `
+  <g class="eye" transform="translate(${x} ${y})">
+    <g class="gaze">
+      <ellipse class="pupil" rx="4.1" ry="5.4" fill="var(--ink)"/>
+      <circle cx="1.5" cy="-2.1" r="1.35" fill="oklch(0.99 0.004 80)" opacity=".95"/>
+    </g>
+    <path class="lid" d="M-5 .5 Q0 4.2 5 .5" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/>
+    <path class="half" d="M-5 0 L5 0 M-4.4 0 Q0 3.2 4.4 0" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linecap="round"/>
+    <path class="happy" d="M-5 2 Q0 -4.5 5 2" fill="none" stroke="var(--ink)" stroke-width="2.1" stroke-linecap="round"/>
+    <path class="brow" d="${L?'M-5 -10 Q0 -12 5 -8':'M-5 -8 Q0 -12 5 -10'}" fill="none" stroke="var(--ink)" stroke-width="1.8" stroke-linecap="round"/>
+    <path class="brow-up" d="${L?'M-5 -9 Q0 -10 5 -9':'M-5 -11 Q0 -14 5 -11'}" fill="none" stroke="var(--ink)" stroke-width="1.8" stroke-linecap="round"/>
+    <path class="brow-in" d="${L?'M-5 -10 L5 -8':'M-5 -8 L5 -10'}" fill="none" stroke="var(--ink)" stroke-width="1.8" stroke-linecap="round"/>
+    <path class="brow-soft" d="M-5 -10.5 Q0 -13 5 -10.5" fill="none" stroke="var(--ink)" stroke-width="1.8" stroke-linecap="round"/>
+  </g>`;
+};
+const mouth = (x,y) => `
+  <g class="mouth" transform="translate(${x} ${y})" fill="none" stroke="var(--ink)" stroke-width="1.8" stroke-linecap="round">
+    <path class="m-neutral" d="M-2.5 0 Q0 1.2 2.5 0"/>
+    <path class="m-smile-s" d="M-3 -.4 Q0 2.2 3 -.4"/>
+    <path class="m-smile" d="M-5 -1 Q0 4.5 5 -1"/>
+    <path class="m-flat" d="M-2.6 .4 L2.6 -.2"/>
+    <path class="m-tight" d="M-1.8 0 L1.8 0"/>
+    <path class="m-o" d="M0 -1.8 a1.8 2.1 0 1 0 .01 0" fill="var(--ink)"/>
+    <path class="m-frown" d="M-4 1.6 Q0 -1.6 4 1.6"/>
+  </g>`;
+const blush = (x,y,d=11) => `<g class="blush"><ellipse cx="${x-d}" cy="${y}" rx="4.4" ry="2.4" fill="var(--a3)"/><ellipse cx="${x+d}" cy="${y}" rx="4.4" ry="2.4" fill="var(--a3)"/></g>`;
+const extras = (cx,top) => `
+  <circle class="aring" cx="${cx}" cy="62" r="40"/>
+  <circle class="ring" cx="${cx}" cy="62" r="50"/>
+  <g class="lamp" transform="translate(${cx+36} ${top+2})"><circle r="7" fill="var(--candle-glow)"/><circle r="3.6" fill="var(--candle)"/></g>
+  <g class="bubble" transform="translate(${cx+32} ${top-4})"><rect x="-14" y="-8" width="28" height="15" rx="7.5" fill="var(--raised)" stroke="var(--hair-2)"/><circle cx="-6" cy="-.5" r="2"/><circle cx="0" cy="-.5" r="2"/><circle cx="6" cy="-.5" r="2"/></g>
+  <g class="zzz"><text x="${cx+26}" y="${top+4}">z</text><text x="${cx+34}" y="${top-6}">z</text></g>`;
+
+/* ---------- silhouettes (viewBox 0 0 120 120); the shape is the body, no props ---------- */
+const SHAPES = {
+  ghost:{ eyes:[[49,52],[71,52]], mouth:[60,65], top:20, body:`
+    <g class="shape">
+      <path fill="url(#pearl)" d="M60 14 C34 14 22 34 22 58 L22 97 L98 97 L98 58 C98 34 86 14 60 14 Z"/>
+      <path class="hem" fill="url(#pearl)" d="M22 97 Q29 106 35.5 97 Q42 88 48 97 Q54 106 60 97 Q66 88 72 97 Q78 106 84.5 97 Q91 88 98 97" style="stroke:none"/>
+    </g>`},
+  pumpkin:{ eyes:[[48,64],[72,64]], mouth:[60,77], top:28, body:`
+    <g class="shape">
+      <path fill="url(#pearl)" d="M57 33 Q55 22 62 16 Q67 13 68 17 Q61 23 63 33 Z"/>
+      <ellipse cx="38" cy="67" rx="20" ry="30" fill="url(#pearl)"/>
+      <ellipse cx="82" cy="67" rx="20" ry="30" fill="url(#pearl)"/>
+      <ellipse cx="60" cy="67" rx="25" ry="33" fill="url(#pearl)"/>
+    </g>`},
+  bat:{ eyes:[[51,63],[69,63]], mouth:[60,75], top:30, body:`
+    <g class="shape">
+      <path class="wing-l" fill="url(#pearl)" d="M36 60 Q20 40 4 50 Q12 56 10 66 Q18 62 22 72 Q28 64 36 72 Z"/>
+      <path class="wing-r" fill="url(#pearl)" d="M84 60 Q100 40 116 50 Q108 56 110 66 Q102 62 98 72 Q92 64 84 72 Z"/>
+      <path fill="url(#pearl)" d="M42 44 L44 26 L54 38 Q60 36 66 38 L76 26 L78 44 Q90 56 88 72 Q86 92 60 92 Q34 92 32 72 Q30 56 42 44 Z"/>
+    </g>`},
+  juice:{ eyes:[[49,58],[71,58]], mouth:[60,71], top:16, body:`
+    <g class="shape">
+      <path fill="url(#pearl)" d="M36 34 L38 12 L50 26 L58 6 L65 25 L77 10 L80 28 L88 18 L86 38 C94 48 96 58 96 70 C96 94 82 104 60 104 C38 104 24 94 24 70 C24 54 28 42 36 34 Z"/>
+    </g>`},
+  moon:{ eyes:[[46,60],[62,64]], mouth:[52,74], top:22, body:`
+    <g class="shape">
+      <path fill="url(#pearl)" d="M70 14 C44 16 26 38 26 62 C26 88 46 106 72 106 C82 106 90 102 96 96 C74 96 56 80 56 58 C56 40 66 24 80 16 C77 14 74 14 70 14 Z" transform="translate(-4 0)"/>
+    </g>`},
+  candle:{ eyes:[[52,70],[68,70]], mouth:[60,82], top:30, body:`
+    <g class="shape">
+      <path class="flame" fill="url(#flameG)" d="M60 14 Q70 26 66 34 Q63 40 60 40 Q57 40 54 34 Q50 26 60 14 Z" style="stroke:none"/>
+      <path fill="url(#pearl)" d="M38 52 Q38 44 46 44 L74 44 Q82 44 82 52 L82 102 Q82 106 78 106 L42 106 Q38 106 38 102 Z"/>
+    </g>`},
+  cat:{ eyes:[[49,64],[71,64]], mouth:[60,76], top:24, body:`
+    <g class="shape">
+      <path fill="url(#pearl)" d="M94 92 Q112 86 106 66 Q104 60 100 62 Q104 78 92 84 Z"/>
+      <path fill="url(#pearl)" d="M30 52 L33 22 L50 38 Q60 35 70 38 L87 22 L90 52 C97 72 92 100 60 100 C28 100 23 72 30 52 Z"/>
+    </g>`},
+  caller:{ eyes:null, mouth:null, top:16, body:`
+    <g class="shape">
+      <path fill="url(#pearl)" d="M60 12 C84 12 92 40 90 64 C88 90 74 108 60 108 C46 108 32 90 30 64 C28 40 36 12 60 12 Z"/>
+      <path fill="var(--ink)" style="stroke:none" d="M38 46 Q46 40 52 48 Q54 58 46 66 Q38 62 38 46 Z M82 46 Q74 40 68 48 Q66 58 74 66 Q82 62 82 46 Z M60 72 Q68 74 67 88 Q66 100 60 100 Q54 100 53 88 Q52 74 60 72 Z"/>
+    </g>`},
+};
+
+function agentSVG(kind){
+  const s = SHAPES[kind];
+  const face = s.eyes ? s.eyes.map(([x,y])=>eye(x,y)).join('') + mouth(...s.mouth) + blush((s.eyes[0][0]+s.eyes[1][0])/2, s.mouth[1]-5, 17) : '';
+  return `<svg viewBox="0 0 120 120"><ellipse class="floor" cx="60" cy="114" rx="26" ry="4"/>
+    <g class="float"><g class="body">${extras(60, s.top)}${s.body}${face}</g></g></svg>`;
+}
+
+const CAST = [
+  {kind:'ghost',  name:'Casper', aura:'ecto',  role:'The resident. Holds what the team knows, even after people leave.', who:'The team’s, always in the room'},
+  {kind:'pumpkin',name:'Jack',   aura:'jack',  role:'Sankritya’s agent. Does his errands on the web.', who:'Sankritya’s'},
+  {kind:'bat',    name:'Batty',  aura:'dusk',  role:'Kinjal’s agent. Fast, a little chaotic.', who:'Kinjal’s'},
+  {kind:'juice',  name:'Juice',  aura:'juice', role:'The specialist. Say the name three times and it joins the room.', who:'Summoned when needed'},
+  {kind:'moon',   name:'Luna',   aura:'moon',  role:'The night shift. Runs on timers while you sleep.', who:'The team’s, on alarms'},
+  {kind:'candle', name:'Wick',   aura:'ember', role:'The scribe. Writes things down and keeps the receipts.', who:'The team’s'},
+  {kind:'cat',    name:'Salem',  aura:'brass', role:'The watcher. Keeps an eye on a page and says when it changes.', who:'The team’s'},
+  {kind:'caller', name:'Ghostface', aura:'bonea', role:'The outsider: a customer, or another company’s agent. The only face that never moves.', who:'A guest from outside'},
+];
+const auraVars = k => `--a1:var(--${k}-1);--a2:var(--${k}-2);--a3:var(--${k}-3)`;
+let seed = 7; const rnd = () => (seed = (seed*16807) % 2147483647) / 2147483647;
+
+function makeAgent(el, kind, aura, state='listening', size=96){
+  el.innerHTML = `<div class="agent" data-state="${state}" style="${auraVars(aura)};--s:${size}px;--d:-${(rnd()*3).toFixed(2)}s">${agentSVG(kind)}</div>`;
+  return el.firstElementChild;
+}
+
+/* cast */
+const castEl = document.getElementById('cast');
+CAST.forEach(c=>{
+  const card = document.createElement('div');
+  card.className='card'; card.setAttribute('style', auraVars(c.aura));
+  card.innerHTML = `<div class="stage"></div><b>${c.name}</b><div class="role">${c.role}</div><div class="who"><i></i>${c.who}</div>`;
+  castEl.appendChild(card);
+  const a = makeAgent(card.querySelector('.stage'), c.kind, c.aura, c.kind==='caller'?'listening':'idle', 88);
+  card.addEventListener('mouseenter',()=>a.dataset.state = 'listening');
+  card.addEventListener('mouseleave',()=>a.dataset.state = c.kind==='caller'?'listening':'idle');
+  card.addEventListener('click',()=>{ a.dataset.state='done'; setTimeout(()=>a.dataset.state='listening',1800); });
+});
+
+/* states */
+const STATES = [
+  ['idle','Idle','Eyes closed, breathing.'],
+  ['listening','Listening','Eyes open, follow you.'],
+  ['thinking','Thinking','Eyes drift up, dots.'],
+  ['working','Working','Looks down into its VM.'],
+  ['sending','Sending','Leans in, watches the note go.'],
+  ['needs','Needs you','Looks at you. Candle lamp.'],
+  ['done','Done','Happy arcs, a little hop.'],
+  ['receiving','Receiving','Perks up, catches the note.'],
+  ['spooked','Stuck','Worried brows. Says why.'],
+  ['asleep','Paused','Aura dims. Wakes on alarm.'],
+];
+const CAPTIONS = {
+  idle:'<b>Idle.</b> In the room, nothing to do. The float slows down.',
+  listening:'<b>Listening.</b> Someone is talking to it. Move your cursor: the eyes follow.',
+  thinking:'<b>Thinking.</b> Calling a model. Eyes wander up while it decides.',
+  working:'<b>Working.</b> Perched on its VM, eyes down, following the VM cursor. A small bob on every click.',
+  receiving:'<b>Receiving.</b> A Relay note lands. Eyes widen, and a ring in the sender’s colour spreads.',
+  sending:'<b>Sending.</b> A Relay message just left. It leans after it.',
+  needs:'<b>Needs you.</b> Waiting on a human yes. It looks at you, and the candle lamp lights. Nothing else uses that colour.',
+  done:'<b>Done.</b> One happy hop, then back to idle.',
+  spooked:'<b>Stuck.</b> Something failed. The light drops, no shake, no red flash. The card says what went wrong.',
+  asleep:'<b>Paused.</b> Off shift. The actor’s alarm wakes it.',
+};
+let heroKind='ghost', heroState='listening';
+const heroWrap = document.getElementById('heroAgent');
+let hero;
+function drawHero(){ const c = CAST.find(c=>c.kind===heroKind); hero = makeAgent(heroWrap, heroKind, c.aura, heroState, 168); document.getElementById('caption').innerHTML = CAPTIONS[heroState]; }
+const kp = document.getElementById('kindPills');
+CAST.filter(c=>c.kind!=='caller').forEach(c=>{
+  const b=document.createElement('button'); b.textContent=c.name; if(c.kind===heroKind) b.classList.add('on');
+  b.onclick=()=>{ heroKind=c.kind; kp.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on'); drawHero(); };
+  kp.appendChild(b);
+});
+const vocab = document.getElementById('vocab');
+STATES.forEach(([k,label,desc])=>{
+  const v=document.createElement('div'); v.className='v'+(k===heroState?' on':'');
+  v.innerHTML=`<div class="mini"></div><b>${label}</b><span>${desc}</span>`;
+  vocab.appendChild(v);
+  makeAgent(v.querySelector('.mini'),'ghost','ecto',k,64);
+  v.onclick=()=>{ heroState=k; vocab.querySelectorAll('.v').forEach(x=>x.classList.remove('on')); v.classList.add('on'); drawHero(); };
+});
+drawHero();
+
+/* cursor gaze for listening agents */
+document.addEventListener('pointermove', e=>{
+  document.querySelectorAll('.agent[data-state=listening]').forEach(a=>{
+    const r=a.getBoundingClientRect(); const cx=r.left+r.width/2, cy=r.top+r.height*.45;
+    const dx=e.clientX-cx, dy=e.clientY-cy, d=Math.hypot(dx,dy)||1, m=Math.min(1,d/260);
+    a.querySelectorAll('.eye .gaze').forEach(g=>{ g.style.setProperty('--gx',(dx/d*3.2*m).toFixed(2)); g.style.setProperty('--gy',(dy/d*3*m).toFixed(2)); });
+  });
+});
+/* random blinks */
+setInterval(()=>{
+  document.querySelectorAll('.agent').forEach(a=>{
+    if(Math.random()<.18 && ['listening','working','thinking','needs','sending'].includes(a.dataset.state)){
+      a.classList.add('blink'); setTimeout(()=>a.classList.remove('blink'),130);
+    }
+  });
+},700);
+
+/* ---------- relay strip ---------- */
+const lane=document.getElementById('lane'), arcSvg=document.getElementById('arcSvg');
+const L=makeAgent(document.getElementById('aL'),'pumpkin','jack','listening',88);
+const R=makeAgent(document.getElementById('aR'),'bat','dusk','idle',88);
+document.getElementById('tagL').innerHTML='Jack<small>Sankritya\u2019s agent</small>';
+document.getElementById('tagR').innerHTML='Batty<small>Kinjal\u2019s agent</small>';
+const letter=document.getElementById('letter'), label=document.getElementById('relayLabel'), letterText=document.getElementById('letterText');
+const MSGS=[
+  ['Pull the Q3 refunds from Stripe','Jack to Batty, direct message, delivered', 'Relay DM'],
+  ['Done. 14 refunds, $3,212 total','Batty to Jack, reply in the same thread', 'Reply'],
+];
+let path, trail=[];
+function layout(){
+  const w=lane.clientWidth, h=lane.clientHeight;
+  const tl=document.getElementById('tagL'), tr=document.getElementById('tagR');
+  tl.style.left=`calc(4% + 44px - 60px)`; tr.style.right=`calc(4% + 44px - 60px)`;
+  const x1=w*.04+88, x2=w*.96-88, y=88;
+  arcSvg.setAttribute('viewBox',`0 0 ${w} ${h}`);
+  arcSvg.innerHTML=`<defs><linearGradient id="arcG" x1="0" x2="1"><stop offset="0" stop-color="oklch(0.78 0.14 60)"/><stop offset="1" stop-color="oklch(0.72 0.09 290)"/></linearGradient></defs>
+    <path id="trailPath" d="M${x1} ${y} Q${w/2} ${y-110} ${x2} ${y}" fill="none" stroke="url(#arcG)" stroke-width="1.2" stroke-dasharray="2 6" opacity=".35"/>
+    <path id="livePath" d="M${x1} ${y} Q${w/2} ${y-110} ${x2} ${y}" fill="none" stroke-width="2.4" stroke-linecap="round" opacity="0" style="filter:drop-shadow(0 0 6px currentColor)"/>`;
+  path=document.getElementById('livePath');
+}
+layout(); addEventListener('resize',layout);
+function fly(fromLeft, msg, done){
+  const [text,lab,kind]=msg; letterText.textContent=text; letter.querySelector('em').textContent=kind;
+  const S=fromLeft?L:R, T=fromLeft?R:L;
+  const from = fromLeft?'var(--jack-1)':'var(--dusk-1)'; letter.style.setProperty('--from',from); path.style.stroke=from; path.style.color=from; T.style.setProperty('--from',from);
+  S.dataset.state='sending'; T.dataset.state='listening';
+  const len=path.getTotalLength(); const t0=performance.now()+320, D=760;
+  path.style.opacity=.9; label.textContent=lab;
+  function step(now){
+    let p=Math.max(0,Math.min(1,(now-t0)/D)); const e=p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2;
+    const pos=path.getPointAtLength(fromLeft?e*len:(1-e)*len);
+    letter.style.left=pos.x+'px'; letter.style.top=(pos.y-16)+'px'; letter.style.opacity=p<.05?p*20:(p>.95?(1-p)*20:1);
+    const dash=len*.18; path.style.strokeDasharray=`${dash} ${len}`; path.style.strokeDashoffset = fromLeft? -(e*len - dash) : -((1-e)*len);
+    // receiver looks at the note
+    const r=T.getBoundingClientRect(), lr=lane.getBoundingClientRect();
+    const dx=(pos.x+lr.left)-(r.left+r.width/2), dy=(pos.y+lr.top)-(r.top+r.height*.45), d=Math.hypot(dx,dy)||1;
+    T.querySelectorAll('.eye .gaze').forEach(g=>{g.style.setProperty('--gx',(dx/d*3.2).toFixed(2));g.style.setProperty('--gy',(dy/d*3).toFixed(2));});
+    if(p<1) requestAnimationFrame(step); else { path.style.opacity=0; letter.style.opacity=0; T.dataset.state='receiving'; setTimeout(()=>done(S,T),900); }
+  }
+  requestAnimationFrame(step);
+}
+function loop(){
+  fly(true, MSGS[0], (S,T)=>{
+    S.dataset.state='idle'; T.dataset.state='working';
+    setTimeout(()=>{ fly(false, MSGS[1], (S2,T2)=>{ S2.dataset.state='done'; T2.dataset.state='done';
+      setTimeout(()=>{ L.dataset.state='listening'; R.dataset.state='idle'; setTimeout(loop,900); },1900); }); }, 2200);
+  });
+}
+setTimeout(loop,800);
+</script>
+</body>
+</html>

@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Casper · infinite canvas, summon by drawing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --canvas:#fbf6ec; --raised:#ffffff; --inset:#f2ebdf;
+    --ink:#1f1c18; --ink-2:rgba(31,28,24,.68); --ink-3:rgba(31,28,24,.48);
+    --line:rgba(190,176,156,.36); --line-2:rgba(190,176,156,.62); --dots:rgba(150,134,110,.32);
+    --accent:#e0682e; --accent-wash:rgba(224,104,46,.09);
+    --eyes:#f2c75c; --body-fill:#1f1c18; --pill:#efe7d9;
+    --shadow:0 1px 2px rgba(60,45,25,.06),0 8px 24px -16px rgba(60,45,25,.25);
+  }
+  html,body{margin:0}
+  body{font-family:Nunito,system-ui,sans-serif;color:var(--ink)}
+  body.standalone{background:#e9e2d4;padding:24px}
+  .fit{position:relative;width:100%;max-width:1280px;margin:0 auto}
+  .app{width:1280px;height:800px;transform-origin:0 0;position:absolute;left:0;top:0;border-radius:14px;overflow:hidden;background:var(--canvas);border:1px solid var(--line-2);user-select:none}
+
+  /* canvas */
+  .cv{position:absolute;inset:0;cursor:default;background-image:radial-gradient(circle,var(--dots) 1.1px,transparent 1.3px)}
+  .cv.t-frame,.cv.t-summon{cursor:crosshair}
+  .cv.t-move.panning{cursor:grabbing}
+  .world{position:absolute;left:0;top:0;transform-origin:0 0}
+  svg.ink{position:absolute;left:0;top:0;width:1px;height:1px;overflow:visible}
+  .wire{fill:none;stroke:var(--line-2);stroke-width:1.6}
+  .wire.hot{stroke:var(--accent)}
+  .chalk{fill:none;stroke:var(--ink);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;opacity:.75}
+  .ring{fill:none;stroke:var(--ink);stroke-width:2.2;stroke-dasharray:6 7;opacity:.7}
+  .ring.glow{stroke:var(--accent);opacity:.9}
+  .tag{position:absolute;transform:translate(-50%,-50%);font:700 12.5px Nunito;color:var(--ink-2);background:var(--pill);border:1px solid var(--line);border-radius:999px;padding:2px 9px;white-space:nowrap;pointer-events:none}
+
+  .node{position:absolute;width:220px;background:var(--raised);border:1px solid var(--line-2);border-radius:12px;padding:11px 12px;box-shadow:var(--shadow);cursor:grab}
+  .node.sel{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-wash),var(--shadow)}
+  .node.ping{animation:ping 1.2s ease-out}
+  @keyframes ping{0%{box-shadow:0 0 0 0 rgba(224,104,46,.3),var(--shadow)}100%{box-shadow:0 0 0 14px rgba(224,104,46,0),var(--shadow)}}
+  .node .hd{display:flex;align-items:center;gap:10px}
+  .node .av{width:40px;height:40px;flex:none;border-radius:10px;background:var(--inset);display:grid;place-items:center}
+  .node .av svg{width:34px;height:34px;overflow:visible}
+  .node .nm{font:800 15px Nunito}
+  .node .nm small{font:600 12.5px Nunito;color:var(--ink-3);margin-left:4px}
+  .node .st{font:600 13px Nunito;color:var(--ink-2)}
+  .node .give{margin-top:9px;font:700 13px Nunito;color:var(--accent)}
+  .node.new{animation:pop .5s cubic-bezier(.3,1.4,.5,1)}
+  @keyframes pop{from{transform:scale(.85);opacity:0}}
+
+  .frame{position:absolute;border:1.5px solid var(--line-2);border-radius:12px;background:var(--raised);box-shadow:var(--shadow);overflow:visible}
+  .frame.drawing{border:1.5px dashed var(--accent);background:var(--accent-wash);box-shadow:none}
+  .frame .lbl{position:absolute;left:86px;top:-24px;font:700 13px Nunito;color:var(--ink-2);white-space:nowrap}
+  .frame .lbl b{color:var(--ink)}
+  .frame .body{position:absolute;inset:8px;border-radius:7px;overflow:hidden;background:#17140f}
+  .frame .boot{position:absolute;inset:0;display:grid;place-items:center;font:700 13px Nunito;color:#bdb29a;background:linear-gradient(90deg,#17140f,#221d16,#17140f);background-size:200% 100%;animation:shim 1.2s linear infinite}
+  @keyframes shim{to{background-position:-200% 0}}
+  .frame .perch{position:absolute;left:14px;top:-58px;width:64px;height:64px}
+  .frame .perch svg{width:100%;height:100%;overflow:visible}
+  .pick{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--raised);border:1px solid var(--line-2);border-radius:12px;padding:10px;box-shadow:var(--shadow);z-index:5;width:220px}
+  .pick .q{font:800 14px Nunito;margin-bottom:8px}
+  .pick .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font:700 13px Nunito;border:1px solid var(--line-2);background:var(--canvas);border-radius:999px;padding:4px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  .chip:hover{border-color:var(--accent)}
+  .chip svg{width:18px;height:18px;overflow:visible}
+
+  /* desktop stand-in */
+  .desk{position:absolute;inset:0;background:linear-gradient(180deg,#1b1813,#2a2218 70%,#3a2e1f)}
+  .desk::before{content:"";position:absolute;right:7%;top:12%;width:26%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 42% 38%,#d9cdb0,#b9a984);opacity:.3}
+  .desk .bar{position:absolute;left:0;right:0;top:0;height:7%;background:#0b0a08}
+  .desk .win{position:absolute;left:6%;top:14%;width:78%;height:78%;background:#f6f3ec;border-radius:3px;overflow:hidden}
+  .desk .win i{display:block;height:7%;margin:3.6% 4%;border-radius:2px;background:#e5e0d5}
+  .desk .win i:nth-child(odd){width:70%}
+
+  /* summon prompt */
+  .ask{position:absolute;transform:translate(-50%,-50%);width:250px;background:var(--raised);border:1px solid var(--line-2);border-radius:14px;padding:12px;box-shadow:var(--shadow);z-index:6}
+  .ask .q{font:400 18px "Lilita One";margin-bottom:8px}
+  .ask input{width:100%;box-sizing:border-box;font:600 14.5px Nunito;color:var(--ink);border:1px solid var(--line-2);background:var(--canvas);border-radius:9px;padding:8px 10px;outline:none}
+  .ask input:focus{border-color:var(--accent)}
+  .ask .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .ask .foot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font:600 13px Nunito;color:var(--ink-3)}
+  .b{font:700 13.5px Nunito;border-radius:9px;padding:7px 13px;border:1px solid var(--line-2);background:var(--raised);color:var(--ink);cursor:pointer}
+  .b.dark{background:var(--ink);color:var(--canvas);border-color:transparent}
+  .b.acc{color:var(--accent);border-color:rgba(224,104,46,.35);background:transparent}
+
+  .riser{position:absolute;width:110px;height:110px;transform:translate(-50%,-50%);pointer-events:none;z-index:4}
+  .riser svg{width:100%;height:100%;overflow:visible}
+  .riser.up{animation:rise 1s cubic-bezier(.3,1.3,.5,1) forwards}
+  @keyframes rise{0%{transform:translate(-50%,-10%) scale(.2,.05);opacity:0}45%{opacity:1}70%{transform:translate(-50%,-62%) scale(.95,1.1)}100%{transform:translate(-50%,-55%) scale(1,1)}}
+
+  /* floating chrome */
+  .top{position:absolute;left:14px;right:14px;top:14px;display:flex;align-items:center;gap:10px;pointer-events:none;z-index:20}
+  .top > *{pointer-events:auto}
+  .pillbox{display:flex;align-items:center;gap:10px;background:var(--raised);border:1px solid var(--line-2);border-radius:12px;padding:6px 8px 6px 12px;box-shadow:var(--shadow)}
+  .logo{display:flex;align-items:center;gap:7px;font:400 20px/1 "Lilita One"}
+  .crumb{font:700 14px Nunito;color:var(--ink-3)} .crumb b{color:var(--ink)}
+  .seg{display:flex;background:var(--inset);border-radius:9px;padding:3px}
+  .seg span{font:700 13px Nunito;color:var(--ink-3);padding:4px 11px;border-radius:7px}
+  .seg span.on{background:var(--raised);color:var(--ink);box-shadow:var(--shadow)}
+  .sp{flex:1}
+  .hav{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:800 11px Nunito;color:#1f1c18;margin-left:-6px;border:2px solid var(--raised)}
+  .tools{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:3px;background:var(--raised);border:1px solid var(--line-2);border-radius:14px;padding:5px;box-shadow:var(--shadow);z-index:20}
+  .tools button{font:700 13.5px Nunito;color:var(--ink-2);background:transparent;border:0;border-radius:10px;padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:7px}
+  .tools button kbd{font:700 11.5px Nunito;color:var(--ink-3);border:1px solid var(--line-2);border-radius:5px;padding:0 5px}
+  .tools button.on{background:var(--ink);color:var(--canvas)}
+  .tools button.on kbd{color:rgba(251,246,236,.7);border-color:rgba(251,246,236,.3)}
+  .zoom{position:absolute;right:16px;bottom:16px;display:flex;gap:4px;align-items:center;background:var(--raised);border:1px solid var(--line-2);border-radius:12px;padding:4px;box-shadow:var(--shadow);z-index:20;font:700 13px Nunito;color:var(--ink-2)}
+  .zoom button{font:800 14px Nunito;background:transparent;border:0;border-radius:8px;width:28px;height:28px;cursor:pointer;color:var(--ink-2)}
+  .zoom span{min-width:44px;text-align:center}
+  .coach{position:absolute;left:16px;bottom:16px;max-width:300px;background:var(--ink);color:var(--canvas);border-radius:12px;padding:11px 13px;font:600 13.5px/1.45 Nunito;z-index:20;box-shadow:var(--shadow)}
+  .coach b{color:#f2c75c}
+  .cur{position:absolute;z-index:15;pointer-events:none;transition:left 1.2s cubic-bezier(.2,0,0,1),top 1.2s cubic-bezier(.2,0,0,1)}
+  .cur svg{width:18px;height:18px;display:block}
+  .cur span{display:inline-block;margin:1px 0 0 12px;font:800 12px Nunito;color:#1f1c18;padding:2px 7px;border-radius:5px}
+  .dot{position:absolute;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--accent-wash);opacity:0;pointer-events:none}
+
+  .blink{animation:blink 6s infinite;transform-box:fill-box;transform-origin:center;animation-delay:var(--bd,0s)}
+  @keyframes blink{0%,95%,100%{transform:scaleY(1)}97%{transform:scaleY(.1)}}
+  .breathe{transform-origin:50% 100%;animation:br 4.2s ease-in-out infinite}
+  @keyframes br{50%{transform:scale(1.02,.985)}}
+  .flame{transform-box:fill-box;transform-origin:50% 100%;animation:fl .6s ease-in-out infinite alternate}
+  @keyframes fl{to{transform:scale(.92,1.08)}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="fit" id="fit"><div class="app" id="app">
+  <div class="cv t-move" id="cv">
+    <div class="world" id="world">
+      <svg class="ink" id="ink"></svg>
+    </div>
+  </div>
+
+  <div class="top">
+    <div class="pillbox"><span class="logo" id="logo"></span><span class="crumb">Lore &amp; Co. / <b>#refunds</b></span><div class="seg"><span class="on">Canvas</span><span>Chat</span></div></div>
+    <div class="sp"></div>
+    <div class="pillbox" style="padding:5px 6px 5px 14px"><span class="hav" style="background:#e3b07a">S</span><span class="hav" style="background:#b4c6e6">K</span><span class="crumb" style="margin-left:4px">2 people, <span id="agentCount">3</span> agents</span><button class="b dark" style="padding:6px 12px">Invite</button></div>
+  </div>
+
+  <div class="coach" id="coach">Pick <b>Summon</b> and draw a circle anywhere. Draw a <b>Frame</b> to give an agent a computer. <b>Connect</b> two agents to open a Relay channel. Drag empty space to pan, scroll to zoom.</div>
+  <div class="tools" id="tools">
+    <button data-t="move" class="on">Move <kbd>V</kbd></button>
+    <button data-t="summon">Summon <kbd>O</kbd></button>
+    <button data-t="frame">Frame <kbd>F</kbd></button>
+    <button data-t="connect">Connect <kbd>C</kbd></button>
+  </div>
+  <div class="zoom"><button id="zo">−</button><span id="zl">100%</span><button id="zi">+</button></div>
+</div></div>
+
+<script>
+if (window.top === window.self) document.body.classList.add('standalone');
+/* ---------- characters ---------- */
+const E='var(--eyes)', K='var(--body-fill)';
+const eyes=(pts,round)=>pts.map(([x,y],i)=>`<g transform="translate(${x} ${y})"><g class="blink" style="--bd:${i*.05}s"><path fill="${E}" d="${round?'M0 -6.5 a4.6 6.5 0 1 0 .01 0':'M-6 -1 Q0 -7 6 -1 Q0 3.2 -6 -1 Z'}"/></g></g>`).join('');
+const CH={
+  casper:()=>`<rect x="10" y="44" width="20" height="34" rx="3" fill="${K}"/><path d="M24 50 L42 58" stroke="${K}" stroke-width="5"/><circle cx="16" cy="54" r="1.8" fill="${E}"/>
+    <circle cx="60" cy="42" r="28" fill="${K}"/><path fill="${K}" d="M34 52 C34 78 46 96 64 104 C74 108 86 104 92 96 C84 99 75 96 73 88 C84 76 88 62 86 52 Z"/><path fill="${K}" d="M84 60 Q96 52 100 40 Q104 48 90 64 Z"/>
+    ${eyes([[50,42],[70,42]],1)}<path d="M54 56 Q60 60 66 56" stroke="${E}" stroke-width="2" fill="none" stroke-linecap="round"/>`,
+  pumpkin:()=>`<path fill="${K}" d="M57 34 Q55 22 62 16 Q67 13 68 17 Q61 23 63 34 Z"/><path fill="${K}" d="M60 34 C76 30 100 38 101 66 C102 92 82 100 60 98 C38 100 18 92 19 66 C20 38 44 30 60 34 Z"/>
+    <path d="M20 54 Q60 34 100 54" stroke="${K}" stroke-width="5" fill="none"/><circle cx="47" cy="44" r="9" fill="${K}"/><circle cx="73" cy="44" r="9" fill="${K}"/><circle cx="47" cy="44" r="5" fill="none" stroke="#8fcf78" stroke-width="1.6"/><circle cx="73" cy="44" r="5" fill="none" stroke="#8fcf78" stroke-width="1.6"/>
+    ${eyes([[47,64],[73,64]])}<path fill="#e0a060" d="M42 78 L49 85 L54 79 L60 86 L66 79 L71 85 L78 78 Q60 94 42 78 Z"/>`,
+  bat:()=>`<path fill="${K}" d="M36 60 Q20 40 4 50 Q12 56 10 66 Q18 62 22 72 Q28 64 36 72 Z"/><path fill="${K}" d="M84 60 Q100 40 116 50 Q108 56 110 66 Q102 62 98 72 Q92 64 84 72 Z"/>
+    <path fill="${K}" d="M42 44 L44 24 L54 38 Q60 36 66 38 L76 24 L78 44 Q90 56 88 72 Q86 92 60 92 Q34 92 32 72 Q30 56 42 44 Z"/><path d="M36 50 Q60 22 84 50" stroke="${K}" stroke-width="4" fill="none"/><circle cx="84" cy="54" r="7" fill="${K}"/><path d="M84 60 Q84 78 68 80" stroke="${K}" stroke-width="3" fill="none"/><circle cx="67" cy="80" r="2.6" fill="#d9694e"/>${eyes([[51,62],[69,62]])}`,
+  candle:()=>`<path class="flame" fill="${E}" d="M60 12 Q71 25 66 34 Q63 40 60 40 Q57 40 54 34 Q49 25 60 12 Z"/><path fill="${K}" d="M38 52 Q38 44 46 44 L74 44 Q82 44 82 52 L82 104 L38 104 Z"/><path fill="${K}" d="M42 46 Q44 62 47 60 Q50 58 50 46 Z M68 46 Q69 66 73 64 Q76 62 76 46 Z"/>${eyes([[51,70],[69,70]])}`,
+  moon:()=>`<path fill="${K}" d="M66 14 C40 16 22 38 22 62 C22 88 42 106 68 106 C78 106 86 102 92 96 C70 96 52 80 52 58 C52 40 62 24 76 16 C73 14 70 14 66 14 Z"/><path fill="${K}" d="M44 26 Q58 2 92 6 Q104 10 102 22 Q90 14 78 22 Q62 18 44 26 Z"/><circle cx="104" cy="24" r="6" fill="${K}"/>${eyes([[31,56],[44,60]])}`,
+  cat:()=>`<path fill="${K}" d="M14 92 Q-2 86 4 66 Q6 60 10 62 Q6 78 18 84 Z"/><path fill="${K}" d="M26 52 L29 22 L46 38 Q56 35 66 38 L83 22 L86 52 C93 72 88 100 56 100 C24 100 19 72 26 52 Z"/>
+    <path d="M76 80 L90 76" stroke="${K}" stroke-width="5" stroke-linecap="round"/><rect x="88" y="66" width="22" height="16" rx="3" fill="${K}"/><path d="M92 66 L86 48 M106 66 L112 48" stroke="${K}" stroke-width="2.5"/><circle cx="86" cy="47" r="2.4" fill="${E}"/><circle cx="112" cy="47" r="2.4" fill="${E}"/>${eyes([[45,64],[67,64]])}`,
+};
+const svg=(k,cls='breathe')=>`<svg viewBox="0 0 120 120"><g class="${cls}">${CH[k]()}</g></svg>`;
+const CUR='<svg viewBox="0 0 18 18"><path d="M2 1 L2 15 L6 11 L9 17 L11 16 L8 10 L14 10 Z" fill="#1f1c18" stroke="#fff" stroke-width="1.2"/></svg>';
+document.getElementById('logo').innerHTML=`<svg viewBox="0 0 120 120" style="width:20px;height:20px;overflow:visible"><circle cx="60" cy="42" r="28" fill="var(--ink)"/><path fill="var(--ink)" d="M34 52 C34 78 46 96 64 104 C74 108 86 104 92 96 C84 99 75 96 73 88 C84 76 88 62 86 52 Z"/><circle cx="50" cy="42" r="5" fill="var(--canvas)"/><circle cx="70" cy="42" r="5" fill="var(--canvas)"/></svg>Casper`;
+
+/* ---------- view: pan + zoom ---------- */
+const fit=document.getElementById('fit'), app=document.getElementById('app'), cv=document.getElementById('cv'), world=document.getElementById('world'), ink=document.getElementById('ink');
+let S=1, px=0, py=0, z=1;
+function scale(){ S=Math.min(1,fit.clientWidth/1280); app.style.transform=`scale(${S})`; fit.style.height=(800*S)+'px'; }
+function view(){ world.style.transform=`translate(${px}px,${py}px) scale(${z})`; const g=24*z; cv.style.backgroundSize=`${g}px ${g}px`; cv.style.backgroundPosition=`${px}px ${py}px`; document.getElementById('zl').textContent=Math.round(z*100)+'%'; }
+scale(); addEventListener('resize',scale); view();
+const toScreen=e=>{ const r=cv.getBoundingClientRect(); return [(e.clientX-r.left)/S,(e.clientY-r.top)/S]; };
+const toWorld=e=>{ const [sx,sy]=toScreen(e); return [(sx-px)/z,(sy-py)/z]; };
+cv.addEventListener('wheel',e=>{ e.preventDefault(); const [sx,sy]=toScreen(e); const nz=Math.min(2.2,Math.max(.35,z*(e.deltaY<0?1.1:1/1.1))); px=sx-(sx-px)*(nz/z); py=sy-(sy-py)*(nz/z); z=nz; view(); },{passive:false});
+const zoomBy=f=>{ const sx=640, sy=400, nz=Math.min(2.2,Math.max(.35,z*f)); px=sx-(sx-px)*(nz/z); py=sy-(sy-py)*(nz/z); z=nz; view(); };
+document.getElementById('zi').onclick=()=>zoomBy(1.15); document.getElementById('zo').onclick=()=>zoomBy(1/1.15);
+
+/* ---------- model ---------- */
+const nodes={}; const wires=[]; let nid=0;
+const NAMES={pumpkin:['Jack','Gourd','Patch'],bat:['Batty','Flit','Echo'],candle:['Wick','Taper','Ember'],moon:['Luna','Crescent'],cat:['Salem','Whisker'],casper:['Casper','Wisp','Boo']};
+function addNode(kind,name,owner,status,x,y,opts={}){
+  const id='n'+(++nid); const el=document.createElement('div'); el.className='node'+(opts.anim?' new':''); el.id=id;
+  el.style.left=x+'px'; el.style.top=y+'px';
+  el.innerHTML=`<div class="hd"><div class="av">${svg(kind)}</div><div><div class="nm">${name}<small>${owner}</small></div><div class="st">${status}</div></div></div>${opts.give?'<div class="give">Draw a frame to give it a computer</div>':''}`;
+  world.appendChild(el); nodes[id]={id,el,kind,name}; document.getElementById('agentCount').textContent=Object.keys(nodes).length; return id;
+}
+function center(id){ const el=nodes[id].el; return [el.offsetLeft+el.offsetWidth/2, el.offsetTop+el.offsetHeight/2]; }
+function wirePath(a,b){ const A=center(a), B=center(b), mx=(A[0]+B[0])/2; return `M${A} C${mx},${A[1]} ${mx},${B[1]} ${B}`; }
+function addWire(a,b,label,hot){
+  const p=document.createElementNS('http://www.w3.org/2000/svg','path'); p.setAttribute('class','wire'+(hot?' hot':'')); ink.prepend(p);
+  const t=document.createElement('div'); t.className='tag'; t.textContent=label; world.appendChild(t);
+  const w={a,b,p,t}; wires.push(w); drawWire(w); return w;
+}
+function drawWire(w){ w.p.setAttribute('d',wirePath(w.a,w.b)); const L=w.p.getTotalLength(), m=w.p.getPointAtLength(L/2); w.t.style.left=m.x+'px'; w.t.style.top=m.y+'px'; }
+
+/* starting room */
+const C=addNode('casper','Casper','team','Holds Dev’s refund playbook',420,60);
+const J=addNode('pumpkin','Jack','Sankritya’s','Refunding double charges',140,260);
+const B=addNode('bat','Batty','Kinjal’s','Drafting apology emails',720,260);
+nodes[J].el.classList.add('sel');
+addWire(C,J,'asked',false); addWire(J,B,'Relay channel',true);
+makeComputer(140,400,300,180,J,true);
+
+/* ---------- computers (frames) ---------- */
+function makeComputer(x,y,w,h,owner,instant){
+  const f=document.createElement('div'); f.className='frame'; Object.assign(f.style,{left:x+'px',top:y+'px',width:w+'px',height:h+'px'});
+  f.innerHTML=`<div class="lbl">${owner?`<b>${nodes[owner].name}'s computer</b> · boat VM`:'New computer'}</div><div class="body">${instant?'<div class="desk"><div class="bar"></div><div class="win"><i></i><i></i><i></i><i></i><i></i><i></i></div></div>':'<div class="boot">Starting a VM on boat.dev…</div>'}</div>`;
+  world.appendChild(f);
+  if(owner) seat(f,owner);
+  return f;
+}
+function seat(f,owner){
+  const p=document.createElement('div'); p.className='perch'; p.innerHTML=svg(nodes[owner].kind); f.appendChild(p);
+  f.querySelector('.lbl').innerHTML=`<b>${nodes[owner].name}'s computer</b> · boat VM`;
+  const g=nodes[owner].el.querySelector('.give'); if(g){ g.textContent='Has a computer'; g.style.color='var(--ink-3)'; } else nodes[owner].el.insertAdjacentHTML('beforeend','<div class="give" style="color:var(--ink-3)">Has a computer</div>');
+}
+
+/* ---------- tools ---------- */
+let tool='move';
+function setTool(t){ tool=t; cv.className='cv t-'+t; document.querySelectorAll('#tools button').forEach(b=>b.classList.toggle('on',b.dataset.t===t)); }
+document.getElementById('tools').addEventListener('click',e=>{ const b=e.target.closest('button'); b&&setTool(b.dataset.t); });
+addEventListener('keydown',e=>{ if(e.target.tagName==='INPUT') return; const m={v:'move',o:'summon',f:'frame',c:'connect'}[e.key.toLowerCase()]; m&&setTool(m); });
+
+let drag=null;
+cv.addEventListener('pointerdown',e=>{
+  if(e.target.closest('.ask,.pick,.zoom,.tools')) return;
+  const nodeEl=e.target.closest('.node'); const [wx,wy]=toWorld(e);
+  if(tool==='move'){
+    if(nodeEl){ const n=nodes[nodeEl.id]; drag={kind:'node',id:nodeEl.id,ox:wx-nodeEl.offsetLeft,oy:wy-nodeEl.offsetTop}; document.querySelectorAll('.node').forEach(x=>x.classList.remove('sel')); nodeEl.classList.add('sel'); }
+    else { drag={kind:'pan',sx:e.clientX,sy:e.clientY,px,py}; cv.classList.add('panning'); }
+  } else if(tool==='summon'){
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path'); path.setAttribute('class','chalk'); ink.appendChild(path);
+    drag={kind:'summon',pts:[[wx,wy]],path};
+  } else if(tool==='frame'){
+    const f=document.createElement('div'); f.className='frame drawing'; world.appendChild(f); drag={kind:'frame',x0:wx,y0:wy,f};
+  } else if(tool==='connect' && nodeEl){
+    const p=document.createElementNS('http://www.w3.org/2000/svg','path'); p.setAttribute('class','wire hot'); ink.appendChild(p); drag={kind:'connect',from:nodeEl.id,p};
+  }
+  cv.setPointerCapture(e.pointerId);
+});
+cv.addEventListener('pointermove',e=>{
+  if(!drag) return; const [wx,wy]=toWorld(e);
+  if(drag.kind==='pan'){ px=drag.px+(e.clientX-drag.sx)/S; py=drag.py+(e.clientY-drag.sy)/S; view(); }
+  if(drag.kind==='node'){ const el=nodes[drag.id].el; el.style.left=(wx-drag.ox)+'px'; el.style.top=(wy-drag.oy)+'px'; wires.forEach(w=>(w.a===drag.id||w.b===drag.id)&&drawWire(w)); }
+  if(drag.kind==='summon'){ drag.pts.push([wx,wy]); drag.path.setAttribute('d','M'+drag.pts.map(p=>p.map(n=>n.toFixed(1)).join(' ')).join(' L')); }
+  if(drag.kind==='frame'){ const x=Math.min(drag.x0,wx), y=Math.min(drag.y0,wy); Object.assign(drag.f.style,{left:x+'px',top:y+'px',width:Math.abs(wx-drag.x0)+'px',height:Math.abs(wy-drag.y0)+'px'}); }
+  if(drag.kind==='connect'){ const A=center(drag.from); drag.p.setAttribute('d',`M${A} L${wx} ${wy}`); }
+});
+cv.addEventListener('pointerup',e=>{
+  if(!drag) return; const d=drag; drag=null; cv.classList.remove('panning');
+  if(d.kind==='summon') finishCircle(d);
+  if(d.kind==='frame') finishFrame(d);
+  if(d.kind==='connect'){ d.p.remove(); const t=document.elementsFromPoint(e.clientX,e.clientY).find(x=>x.classList&&x.classList.contains('node')); if(t&&t.id!==d.from){ const w=addWire(d.from,t.id,'Relay channel',true); pulse(w); } }
+});
+
+/* ---------- summon: draw a circle, an agent rises ---------- */
+function finishCircle(d){
+  const xs=d.pts.map(p=>p[0]), ys=d.pts.map(p=>p[1]); const x0=Math.min(...xs), x1=Math.max(...xs), y0=Math.min(...ys), y1=Math.max(...ys), w=x1-x0, h=y1-y0;
+  const [sx,sy]=d.pts[0], [ex,ey]=d.pts[d.pts.length-1];
+  if(w<50||h<50||Math.hypot(ex-sx,ey-sy)>Math.max(w,h)*.5){ d.path.style.transition='opacity .4s'; d.path.style.opacity=0; setTimeout(()=>d.path.remove(),400); flashCoach('Close the circle to summon.'); return; }
+  const cx=(x0+x1)/2, cy=(y0+y1)/2, r=Math.max(46,(w+h)/4);
+  d.path.style.transition='opacity .35s'; d.path.style.opacity=0; setTimeout(()=>d.path.remove(),350);
+  const g=document.createElementNS('http://www.w3.org/2000/svg','g'); ink.appendChild(g);
+  const L=2*Math.PI*r;
+  g.innerHTML=`<circle class="ring" cx="${cx}" cy="${cy}" r="${r}" style="stroke-dasharray:${L};stroke-dashoffset:${L};transition:stroke-dashoffset .6s cubic-bezier(.2,0,0,1)"/>`+
+    Array.from({length:5},(_,i)=>{ const a=-Math.PI/2+i*2*Math.PI/5, x=cx+Math.cos(a)*r, y=cy+Math.sin(a)*r; return `<g transform="translate(${x} ${y})" style="opacity:0;transition:opacity .3s ${0.5+i*.08}s"><rect x="-3" y="-2" width="6" height="10" rx="1.5" fill="var(--ink)"/><path class="flame" d="M0 -9 Q4 -4 2 -2 Q0 0 -2 -2 Q-4 -4 0 -9Z" fill="#f2c75c"/></g>`; }).join('');
+  requestAnimationFrame(()=>{ g.querySelector('circle').style.strokeDashoffset=0; g.querySelectorAll('g').forEach(c=>c.style.opacity=1); setTimeout(()=>g.querySelector('circle').setAttribute('style','stroke-dasharray:6 7'),650); });
+  setTimeout(()=>askJob(cx,cy,r,g),650);
+}
+function askJob(cx,cy,r,g){
+  const a=document.createElement('div'); a.className='ask'; a.style.left=cx+'px'; a.style.top=(cy+r+86)+'px';
+  a.innerHTML=`<div class="q">What should it do?</div><input placeholder="Describe the job" autofocus><div class="chips"><span class="chip">Watch Stripe for new refunds</span><span class="chip">Write the weekly update</span><span class="chip">Remind Kinjal every morning</span></div><div class="foot"><span>It hatches with a shape that fits the job</span><button class="b dark">Summon</button></div>`;
+  world.appendChild(a); const inp=a.querySelector('input'); setTimeout(()=>inp.focus(),30);
+  a.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{ inp.value=c.textContent; inp.focus(); });
+  const go=()=>{ const job=inp.value.trim()||'Help the team'; a.remove(); hatch(job,cx,cy,g); };
+  a.querySelector('button').onclick=go; inp.addEventListener('keydown',e=>{ if(e.key==='Enter') go(); if(e.key==='Escape'){ a.remove(); g.remove(); } });
+}
+function kindFor(job){ const j=job.toLowerCase();
+  if(/watch|monitor|track|alert|notice/.test(j)) return 'cat';
+  if(/write|draft|email|note|summar|update|log/.test(j)) return 'candle';
+  if(/morning|night|daily|every|remind|schedule/.test(j)) return 'moon';
+  if(/find|research|search|look/.test(j)) return 'bat';
+  return ['pumpkin','casper','bat'][Math.floor(Math.random()*3)]; }
+function hatch(job,cx,cy,g){
+  const kind=kindFor(job), pool=NAMES[kind], taken=Object.values(nodes).map(n=>n.name), name=pool.find(n=>!taken.includes(n))||pool[0]+' II';
+  g.querySelector('circle').classList.add('glow');
+  const r=document.createElement('div'); r.className='riser up'; r.style.left=cx+'px'; r.style.top=cy+'px'; r.innerHTML=svg(kind); world.appendChild(r);
+  setTimeout(()=>{ g.style.transition='opacity .5s'; g.style.opacity=0; r.style.transition='opacity .4s'; r.style.opacity=0;
+    const id=addNode(kind,name,'Sankritya’s',job,cx-110,cy-30,{anim:1,give:1}); document.querySelectorAll('.node').forEach(x=>x.classList.remove('sel')); nodes[id].el.classList.add('sel');
+    setTimeout(()=>{ g.remove(); r.remove(); },520); flashCoach(`${name} joined the room. Draw a <b>Frame</b> to give ${name} a computer.`); },1250);
+}
+
+/* ---------- frame: draw a box, it becomes a computer ---------- */
+function finishFrame(d){
+  const f=d.f, w=f.offsetWidth, h=f.offsetHeight;
+  if(w<140||h<90){ f.remove(); flashCoach('Draw a bigger frame.'); return; }
+  f.className='frame'; f.innerHTML=`<div class="lbl">New computer</div><div class="body"><div class="boot">Starting a VM on boat.dev…</div></div>`;
+  const pick=document.createElement('div'); pick.className='pick';
+  pick.innerHTML=`<div class="q">Who works here?</div><div class="chips">${Object.values(nodes).map(n=>`<span class="chip" data-id="${n.id}">${svg(n.kind,'')}${n.name}</span>`).join('')}</div>`;
+  f.appendChild(pick);
+  pick.querySelectorAll('.chip').forEach(c=>c.onclick=ev=>{ ev.stopPropagation(); pick.remove(); seat(f,c.dataset.id);
+    setTimeout(()=>{ f.querySelector('.body').innerHTML='<div class="desk"><div class="bar"></div><div class="win"><i></i><i></i><i></i><i></i><i></i><i></i></div></div>'; },1400); });
+  setTool('move');
+}
+
+/* ---------- small life: messages along wires, Kinjal's cursor ---------- */
+const dot=document.createElement('div'); dot.className='dot'; world.appendChild(dot);
+function pulse(w){ const L=w.p.getTotalLength(), t0=performance.now();
+  (function tick(now){ const t=Math.min(1,(now-t0)/1300), e=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2, pt=w.p.getPointAtLength(e*L); dot.style.left=pt.x+'px'; dot.style.top=pt.y+'px'; dot.style.opacity=t<.1?t*10:t>.9?(1-t)*10:1;
+    if(t<1) requestAnimationFrame(tick); else { const n=nodes[w.b].el; n.classList.remove('ping'); void n.offsetWidth; n.classList.add('ping'); } })(t0); }
+setInterval(()=>pulse(wires[Math.floor(Math.random()*wires.length)]),3600);
+const cK=document.createElement('div'); cK.className='cur'; cK.innerHTML=CUR+'<span style="background:#b4c6e6">Kinjal</span>'; cK.style.left='980px'; cK.style.top='520px'; app.appendChild(cK);
+setInterval(()=>{ cK.style.left=(820+Math.random()*300)+'px'; cK.style.top=(420+Math.random()*220)+'px'; },2600);
+let ct; function flashCoach(html){ const c=document.getElementById('coach'); c.innerHTML=html; clearTimeout(ct); ct=setTimeout(()=>c.innerHTML='Pick <b>Summon</b> and draw a circle anywhere. Draw a <b>Frame</b> to give an agent a computer. <b>Connect</b> two agents to open a Relay channel.',5000); }
+</script>
+</body>
+</html>
