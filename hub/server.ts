@@ -55,6 +55,7 @@ const str = (v: unknown, name: string, max = 4000) => {
 const KINDS = new Set(["msg", "claim", "bell", "hush", "relay", "computer", "approve"])
 
 app.get("/", (c) => c.json({ ok: true, service: "casper-hub", rooms: [...watchers.keys()] }))
+app.get("/hooks/push-gate.sh", async (c) => c.body(await Bun.file(new URL("./hooks/push-gate.sh", import.meta.url)).text(), 200, { "content-type": "text/x-shellscript" }))
 app.get("/health", (c) => c.json({ ok: true }))
 
 app.post("/room/:room/claim", async (c) => {
@@ -127,7 +128,20 @@ app.post("/room/:room/meeting", async (c) => {
   return c.json(out)
 })
 
+/* the bell: every open ask across the wing */
+app.get("/bell", async (c) => {
+  const out: RoomEvent[] = []
+  for (const r of await wing.list()) {
+    const sum = await room(r.slug).summary()
+    if (!sum.openAsks.length) continue
+    const evs = await room(r.slug).since(0, 2000)
+    for (const e of evs) if (e.kind === "bell" && sum.openAsks.includes(String(e.meta?.askId))) out.push(e)
+  }
+  return c.json(out)
+})
+
 app.get("/room/:room/events", async (c) => c.json(await room(c.req.param("room")).since(Number(c.req.query("since") ?? 0) || 0)))
+app.get("/room/:room/ask/:id", async (c) => c.json((await room(c.req.param("room")).ask(c.req.param("id"))) ?? { status: "none", decidedBy: null }))
 app.get("/room/:room/summary", async (c) => c.json(await room(c.req.param("room")).summary()))
 
 app.get("/room/:room/socket", upgradeWebSocket((c) => {

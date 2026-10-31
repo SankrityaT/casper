@@ -308,3 +308,9 @@ export async function shareCall(room: string, transcript: string, by: string) {
 }
 export const mcpCommand = (room: string, agent: string) =>
   `claude mcp add --transport http casper "${HUB.url || "<hub-url>"}/mcp?room=${encodeURIComponent(room)}&agent=${encodeURIComponent(agent || "my-agent")}"`;
+export const hookSetup = (room: string, agent: string) => {
+  const hub = HUB.url || "<hub-url>";
+  return `curl -s ${hub}/hooks/push-gate.sh -o ~/.casper-push-gate.sh && chmod +x ~/.casper-push-gate.sh
+# then in .claude/settings.json of the repo the agent works in:
+{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"CASPER_HUB=${hub} CASPER_ROOM=${room} CASPER_AGENT=${agent || "my-agent"} ~/.casper-push-gate.sh"}]}]}}`;
+};

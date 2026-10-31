@@ -16,7 +16,7 @@ import NewRoom from "@/components/ws/NewRoom";
 import Summon, { type Summoned } from "@/components/ws/Summon";
 import { SourceCtx } from "@/components/ws/SourcePeek";
 import { BellPage, AgentsPage, LibraryPage, SettingsPage, UsagePage } from "@/components/ws/Pages";
-import LiveRoom from "@/components/ws/Live";
+import LiveRoom, { LiveBells } from "@/components/ws/Live";
 import { HUB, listRooms, createRoom } from "@/lib/live";
 const LIVE = "autopay";
 
@@ -507,7 +507,7 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
             </div>
           </section>
 
-          {page === "bell" && <BellPage ask={ask} onApprove={approve} goRoom={openRoom} />}
+          {page === "bell" && <BellPage ask={ask} onApprove={approve} goRoom={openRoom} live={<LiveBells goRoom={openRoom} />} />}
           {page === "agents" && <AgentsPage speaking={speaker} open={(id) => { setPage("room"); setPinned(id); setThreadOf(null); setInsp(true); onView("canvas"); }} />}
           {page === "library" && <LibraryPage />}
           {page === "settings" && <SettingsPage />}

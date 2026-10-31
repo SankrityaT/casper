@@ -811,3 +811,9 @@
 .ws .lv-task b{font-size:13px;color:var(--ink);overflow-wrap:anywhere}
 .ws .lv-task small{display:inline-flex;align-items:center;gap:5px;color:var(--ink-3);font-size:12px}
 .ws .lv-rl em.q{color:var(--violet);border-color:rgba(155,135,255,.4)}
+.ws .lv-bells{display:flex;flex-direction:column;gap:10px;max-width:760px;margin-bottom:18px}
+.ws .lv-bells h3{font-size:13px;color:var(--ink-2);font-weight:600;margin:0}
+.ws .lv-bell-row{padding:10px 12px;border-radius:14px;border:1px solid var(--line);background:var(--panel)}
+.ws .lv-bell-meta{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-3)}
+.ws .lv-bell-meta b{color:var(--ink)}
+.ws .lv-link{background:none;border:0;color:var(--violet);cursor:pointer;padding:0;font:inherit}

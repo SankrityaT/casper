@@ -5,7 +5,7 @@ import Agent from "@/components/Agent";
 import { Bubble } from "@/components/ws/Chat";
 import { P, Ic } from "@/components/ws/data";
 import type { Id } from "@/components/ws/data";
-import { answer, derive, hush, liveMode, mcpCommand, post, shareCall, useLive, type LiveEv } from "@/lib/live";
+import { HUB, answer, derive, hookSetup, hush, liveMode, mcpCommand, post, shareCall, useLive, type LiveEv } from "@/lib/live";
 
 /* A live room: what the hub (or the Relay mirror) says happened, in seq order.
    Agents argue on Relay; only what needs a person reaches the room. Hush holds an agent's lines without stopping its work. */
@@ -196,6 +196,8 @@ export default function LiveRoom({ room }: { room: string }) {
           <small>Run this where your agent lives (Claude Code shown; any MCP client works). It can read the room, claim tasks, post, and ring the bell. It runs on your own keys.</small>
           <input value={agentName} onChange={(e) => setAgentName(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""))} placeholder="Name your agent, e.g. jack" aria-label="Agent name" />
           <code className="lv-cmd">{mcpCommand(room, agentName)}</code>
+          <small>Optional: make it ask before every <code>git push</code>. The first push rings the bell with the commits and files; once someone approves, the same push goes through. If the hub can't be reached, the push stays blocked.</small>
+          <code className="lv-cmd">{hookSetup(room, agentName)}</code>
           <div className="row" style={{ gap: 8 }}>
             <button className="pill white" onClick={() => { navigator.clipboard?.writeText(mcpCommand(room, agentName)); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>{copied ? "Copied" : "Copy command"}</button>
             <button className="pill" onClick={() => setPanel(null)}>Done</button>
@@ -305,6 +307,26 @@ export default function LiveRoom({ room }: { room: string }) {
         )}
         <button className="pill white" type="submit" disabled={!draft.trim()}>Send</button>
       </form>
+    </div>
+  );
+}
+
+/* The bell, live: every open ask across the wing's rooms, newest first. */
+export function LiveBells({ goRoom }: { goRoom: (r: string) => void }) {
+  const [asks, setAsks] = useState<LiveEv[] | null>(null);
+  const load = () => { if (HUB.url) fetch(`${HUB.url}/bell`, { cache: "no-store" }).then((r) => r.json()).then(setAsks).catch(() => setAsks([])); };
+  useEffect(() => { load(); const t = setInterval(load, 4000); return () => clearInterval(t); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!HUB.url || !asks) return null;
+  return (
+    <div className="lv-bells">
+      <h3>Live from the rooms {asks.length ? `· ${asks.length} waiting` : ""}</h3>
+      {asks.length === 0 && <small className="lv-empty" style={{ padding: "10px 0", textAlign: "left" }}>Nothing is waiting on anyone.</small>}
+      {[...asks].reverse().map((e) => (
+        <div key={`${e.room}-${e.seq}`} className="lv-bell-row">
+          <div className="lv-bell-meta"><Face who={e.from} size={18} /><b>{nameOf(e.from)}</b><span>in</span><button className="lv-link" onClick={() => goRoom(e.room)}>#{e.room}</button></div>
+          <BellCard ev={e} room={e.room} />
+        </div>
+      ))}
     </div>
   );
 }

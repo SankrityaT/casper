@@ -27,7 +27,7 @@ const Head = ({ title, sub, right }: { title: string; sub?: string; right?: Reac
 );
 
 /* ---------- the bell ---------- */
-export function BellPage({ ask, onApprove, goRoom }: { ask: Ev["ask"] | null; onApprove: () => void; goRoom: (r: string) => void }) {
+export function BellPage({ ask, onApprove, goRoom, live }: { ask: Ev["ask"] | null; onApprove: () => void; goRoom: (r: string) => void; live?: React.ReactNode }) {
   const [past, setPast] = useState(BELL_PAST);
   const answer = (i: number, done: string) => setPast((p) => p.map((x, k) => (k === i ? { ...x, done } : x)));
   const open = past.filter((p) => !p.done);
@@ -36,6 +36,7 @@ export function BellPage({ ask, onApprove, goRoom }: { ask: Ev["ask"] | null; on
       <Head title="The bell" sub={`${(ask ? 1 : 0) + open.length} waiting`} />
       <div className="sc"><div className="sec">
         <p className="lead">Everything an agent is waiting on a person for. Oldest first, each with the evidence.</p>
+        {live}
         <h3>Waiting</h3>
         <div className="group">
           {ask && (
