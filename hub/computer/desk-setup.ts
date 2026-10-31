@@ -27,7 +27,10 @@ const step = async (label: string, cmd: string, timeout = 300) => {
 };
 
 await step("screen deps", `mkdir -p ~/screen && cd ~/screen && (test -d node_modules/ws || npm i --silent ws@8 >/dev/null 2>&1) && echo ${await b64("vm/screen.js")} | base64 -d > screen.js`);
-await step("screen start", `cd ~/screen && (test -f screen.pid && kill $(cat screen.pid) 2>/dev/null; true) && (DISPLAY=:0 nohup node screen.js > screen.log 2>&1 & echo $! > screen.pid) && sleep 2 && cat screen.log && ss -ltn | grep -q 9402`);
+const label =
+  process.env.SCREEN_LABEL ??
+  `● LIVE   ${agent}'s computer  ·  boat.dev VM ${id}  ·  $(. /etc/os-release; echo $PRETTY_NAME)  ·  $(nproc) vCPU`;
+await step("screen start", `cd ~/screen && (test -f screen.pid && kill $(cat screen.pid) 2>/dev/null; true) && export SCREEN_LABEL="${label}" && (DISPLAY=:0 nohup node screen.js > screen.log 2>&1 & echo $! > screen.pid) && sleep 3 && cat screen.log && ss -ltn | grep -q 9402`);
 
 const key = (process.env.ANTHROPIC_API_KEYS ?? process.env.ANTHROPIC_API_KEY ?? "").split(",")[0].trim();
 const envFile = [

@@ -18,6 +18,15 @@ const [SW, SH] = dims ? [Number(dims[1]), Number(dims[2])] : [1920, 1080];
 const FW = WIDTH;
 const FH = Math.round((SH * WIDTH) / SW / 2) * 2;
 
+// Burned-in badge so every viewer and recording can see this is the agent's VM, not a mock.
+// The label text comes from SCREEN_LABEL, written to a file so ffmpeg needs no escaping.
+const LABEL_FILE = require("path").join(__dirname, "label.txt");
+if (process.env.SCREEN_LABEL) require("fs").writeFileSync(LABEL_FILE, process.env.SCREEN_LABEL);
+const FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf";
+const badge = process.env.SCREEN_LABEL
+  ? `,drawtext=fontfile=${FONT}:textfile=${LABEL_FILE}:x=(w-tw)/2:y=5:fontsize=14:fontcolor=white:box=1:boxcolor=0xD7263D@0.95:boxborderw=5`
+  : "";
+
 const wss = new WebSocketServer({ host: "0.0.0.0", port: PORT });
 let seq = 0;
 let last = null;
@@ -25,7 +34,7 @@ let last = null;
 const ff = spawn(
   "ffmpeg",
   ["-loglevel", "error", "-f", "x11grab", "-framerate", String(FPS), "-video_size", `${SW}x${SH}`, "-i", env.DISPLAY,
-   "-vf", `scale=${FW}:${FH}`, "-q:v", "7", "-f", "image2pipe", "-vcodec", "mjpeg", "-"],
+   "-vf", `scale=${FW}:${FH}${badge}`, "-q:v", "7", "-f", "image2pipe", "-vcodec", "mjpeg", "-"],
   { env },
 );
 let buf = Buffer.alloc(0);
