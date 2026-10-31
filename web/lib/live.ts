@@ -123,13 +123,13 @@ export function liveMode(): "hub" | "file" | "sim" {
   return HUB.url ? "hub" : "sim";
 }
 
-export function useLive(room: string) {
+export function useLive(room: string, on = true) {
   const s = useSyncExternalStore(
     (f) => { const set = subs.get(room) ?? new Set(); set.add(f); subs.set(room, set); return () => set.delete(f); },
     () => { state(room); return snap.get(room)!; },
     () => { state(room); return snap.get(room)!; },
   );
-  useEffect(() => { const m = liveMode(); attach(room, m); return () => detach(room); }, [room]);
+  useEffect(() => { if (!on) return; const m = liveMode(); attach(room, m); return () => detach(room); }, [room, on]);
   return s;
 }
 
@@ -335,6 +335,7 @@ export type Wing = {
   people: { name: string; rooms: string[]; last: number; approvals: number }[];
   agents: { name: string; rooms: string[]; last: number; lastText: string; lastRoom: string; total: number; reached: number; quiet: number; relay: number; claims: string[]; bells: number; working: boolean }[];
   bells: { room: string; askId: string; from: string; title: string; for: string; files: string[]; ts: number; seq: number; status: string; decidedBy: string | null; decidedAt: number | null }[];
+  computers: { agent: string; room: string; vm: string | null; backend: string | null; stream: string | null; desktopUrl: string | null; last: string; ts: number }[];
   library: { kind: "transcript" | "tasks" | "decision" | "branch" | "answer"; room: string; title: string; detail: string; by: string; ts: number; seq: number }[];
   usage: { ai: { calls: number; failures: number; promptTokens: number; completionTokens: number; byModel: Record<string, number> }; totals: { agentMessages: number; reached: number; quiet: number; relay: number } };
 };
@@ -357,3 +358,20 @@ export const ago = (t: number) => {
   const s = Math.max(0, (Date.now() - t) / 1000);
   return s < 60 ? "just now" : s < 3600 ? `${Math.floor(s / 60)} min ago` : s < 86400 ? `${Math.floor(s / 3600)} h ago` : new Date(t).toLocaleDateString();
 };
+
+/* who's in a live room, from its log */
+const PEOPLE = new Set(["sankritya", "kinjal", "you"]);
+export function useRoomPeople(room: string, on: boolean) {
+  const s = useLive(room, on);
+  const agents: string[] = [], humans: string[] = [];
+  for (const e of s.evs) {
+    const n = e.from.toLowerCase().split("#")[0];
+    if (PEOPLE.has(n)) { if (!humans.includes(n)) humans.push(n); }
+    else if (n !== "casper" && n !== "stretch" && !agents.includes(n)) agents.push(n);
+  }
+  const last = s.evs[s.evs.length - 1];
+  return { agents, humans, speaking: last ? last.from.toLowerCase() : null };
+}
+const KINDS = ["cat", "moon", "pumpkin", "bat", "candle", "casper"] as const;
+const FIXED: Record<string, string> = { jack: "pumpkin", batty: "bat", wick: "candle", casper: "casper", stretch: "stretch", fatso: "fatso", stinkie: "stinkie" };
+export const kindFor = (name: string) => FIXED[name] ?? KINDS[[...name].reduce((a, c) => a + c.charCodeAt(0), 0) % KINDS.length];

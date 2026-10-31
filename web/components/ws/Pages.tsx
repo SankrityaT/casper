@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { knock } from "@/lib/agents";
-import { HUB, me, useWing } from "@/lib/live";
+import { HUB, me, useWing, kindFor } from "@/lib/live";
 import { LiveAgentsPage, LiveLibraryPage, LiveUsagePage, LiveBellAnswered } from "@/components/ws/WingPages";
 import Agent from "@/components/Agent";
 import Brand, { type BrandName } from "@/components/ui/Brand";
@@ -236,6 +236,7 @@ const VOICES = [
   { id: "mirror", t: "Match how I write", s: "Learns from your messages here.", line: "yeah 6 tests pass. look before i push? didnt commit anything else" },
 ];
 export function SettingsPage() {
+  const w = useWing();
   const [sec, setSec] = useState("agents");
   const [voice, setVoice] = useState("chill");
   const nav = [["general", "General"], ["members", "Members"], ["agents", "Agents"], ["ai", "Your AI"], ["rules", "Rules and approvals"], ["connections", "Connections"], ["computers", "Computers"], ["sharing", "Sharing"]];
@@ -257,11 +258,12 @@ export function SettingsPage() {
           </>}
           {sec === "members" && <>
             <h2>Members</h2><p className="lead">People in this wing see every room in it. Owners and editors can approve.</p>
-            <Invite />
+            {w ? <div className="group">{w.people.length === 0 && <Row title="Nobody has posted yet" />}{w.people.map((p) => <Row key={p.name} left={<span className="pf" style={{ background: P[p.name as Id]?.color ?? "#6f8fc7", width: 34, height: 34 }}>{p.name[0].toUpperCase()}</span>} title={P[p.name as Id]?.name ?? p.name} sub={`In ${p.rooms.map((r) => "#" + r).join(", ")} · ${p.approvals} approvals`} />)}</div> : <Invite />}
           </>}
           {sec === "agents" && <>
             <h2>Agents</h2><p className="lead">Who’s here, and how they talk to you.</p>
-            <div className="group">{[...AGENTS, ...CREW].map((id) => <Row key={id} left={<Face id={id} />} title={P[id].name} sub={P[id].sub}><Sw on /></Row>)}</div>
+            {w ? <div className="group">{w.agents.length === 0 && <Row title="No agents yet" sub="Summon one in a room, or connect your own with the knock command." />}{w.agents.map((a) => <Row key={a.name} left={<span className="av"><Agent kind={kindFor(a.name) as never} crop="head" className="size-full" /></span>} title={a.name} sub={`In ${a.rooms.map((r) => "#" + r).join(", ")} · ${a.total} messages`}><Sw on /></Row>)}</div>
+            : <div className="group">{[...AGENTS, ...CREW].map((id) => <Row key={id} left={<Face id={id} />} title={P[id].name} sub={P[id].sub}><Sw on /></Row>)}</div>}
             <h3>How agents talk</h3>
             <div className="vgrid">{VOICES.map((v) => <button key={v.id} className={`vopt ${voice === v.id ? "on" : ""}`} onClick={() => setVoice(v.id)}><b>{v.t}</b><small>{v.s}</small><q>{v.line}</q></button>)}</div>
             <div className="group" style={{ marginTop: 12 }}><Row left={<Face id="jack" />} title={<>Jack <small style={{ display: "inline", marginLeft: 6 }}>preview</small></>} sub={VOICES.find((v) => v.id === voice)!.line} /></div>
@@ -290,14 +292,18 @@ export function SettingsPage() {
               ["linear", "Linear", "ENG team · read and comment", true], ["slack", "Slack", "#eng-alerts · the bell posts here", true],
               ["notion", "Notion", "Specs and runbooks, read only", true], ["figma", "Figma", "Billing page designs, read only", false],
               ["google", "Google Workspace", "Calendar, Docs and Drive", false], ["stripe", "Stripe", "Refunds need a second yes over $500", false],
-            ] as [BrandName, string, string, boolean][]).map(([b, n, sub, on]) => <Connect key={n} brand={b} name={n} sub={sub} start={on} />)}</div>
+            ] as [BrandName, string, string, boolean][]).map(([b, n, sub, on]) => <Connect key={n} brand={b} name={n} sub={w ? "Not connected yet" : sub} start={!w && on} />)}</div>
           </>}
           {sec === "computers" && <>
             <h2>Computers</h2><p className="lead">Cloud desktops agents work on. Anyone in the wing can watch; owners can take over.</p>
-            <div className="group">
+            {w ? <div className="group">{w.computers.length === 0 && <Row title="No computers yet" sub="Summon an agent onto its own boat.dev computer from a room." />}{w.computers.map((c) => (
+              <Row key={c.agent} left={<span className="av"><Agent kind={kindFor(c.agent) as never} crop="head" className="size-full" /></span>} title={`${c.agent}’s computer`} sub={`${c.backend ?? "VM"}${c.vm ? ` ${c.vm}` : ""} · #${c.room} · ${c.last}`}>
+                {c.desktopUrl && <a className="pill" href={c.desktopUrl} target="_blank" rel="noopener noreferrer">Watch ↗</a>}<Dot c={G} t="Live" />
+              </Row>))}</div>
+            : <div className="group">
               <Row left={<Face id="jack" />} title="Jack’s laptop" sub="Claude Code · running"><Dot c={G} t="Live" /></Row>
               <Row left={<Face id="wick" />} title="Wick’s computer" sub="Chrome, demo X account"><Wake /></Row>
-            </div>
+            </div>}
             <h3>Defaults</h3>
             <div className="group"><Row title="Sleep after" sub="Logins survive, open apps don’t"><Chips opts={["10 min", "1 hour", "Never"]} start={["10 min"]} /></Row></div>
           </>}

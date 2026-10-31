@@ -215,25 +215,27 @@ export function TakeOver({ who }: { who: string }) {
 
 
 /* ---------- the message box: @ opens a picker, + attaches from your tools ---------- */
-export function Composer({ value, set, onSend, placeholder }: { value: string; set: (v: string) => void; onSend: (t: string, a?: Att[]) => void; placeholder: string }) {
+export type Mentionable = { handle: string; name: string; sub: string; face: React.ReactNode; color?: string };
+export function Composer({ value, set, onSend, placeholder, people, noAttach }: { value: string; set: (v: string) => void; onSend: (t: string, a?: Att[]) => void; placeholder: string; people?: Mentionable[]; noAttach?: boolean }) {
   const [att, setAtt] = useState<Att[]>([]);
   const [menu, setMenu] = useState(false);
   const [sel, setSel] = useState(0);
   const input = useRef<HTMLInputElement>(null);
   const m = value.match(/@(\w*)$/);
-  const opts = m ? (Object.keys(P) as Id[]).filter((id) => P[id].name.toLowerCase().startsWith(m[1].toLowerCase())) : [];
+  const all: Mentionable[] = people ?? (Object.keys(P) as Id[]).map((id) => ({ handle: P[id].name, name: P[id].name, sub: P[id].kind ? P[id].sub : "person", color: P[id].color, face: P[id].kind ? <Agent kind={P[id].kind!} crop="head" className="size-full" /> : P[id].name[0] }));
+  const opts = m ? all.filter((x) => x.handle.toLowerCase().startsWith(m[1].toLowerCase()) || x.name.toLowerCase().startsWith(m[1].toLowerCase())) : [];
   const n = Math.min(sel, Math.max(0, opts.length - 1));
-  const pick = (id: Id) => { set(value.replace(/@(\w*)$/, `@${P[id].name} `)); setSel(0); input.current?.focus(); };
+  const pick = (x: Mentionable) => { set(value.replace(/@(\w*)$/, `@${x.handle} `)); setSel(0); input.current?.focus(); };
   const submit = () => { if (!value.trim() && !att.length) return; onSend(value, att.length ? att : undefined); set(""); setAtt([]); setMenu(false); };
   return (
     <form className="box" onSubmit={(e) => { e.preventDefault(); if (opts.length) pick(opts[n]); else submit(); }}>
       {opts.length > 0 && (
         <div className="popup">
           <div className="hd">People and agents</div>
-          {opts.map((id, k) => (
-            <button type="button" key={id} className={k === n ? "on" : ""} onMouseEnter={() => setSel(k)} onClick={() => pick(id)}>
-              <span className="face" style={{ background: P[id].color ?? "var(--card-2)" }}>{P[id].kind ? <Agent kind={P[id].kind!} crop="head" className="size-full" /> : P[id].name[0]}</span>
-              {P[id].name}<small>{P[id].kind ? P[id].sub : "person"}</small>
+          {opts.map((x, k) => (
+            <button type="button" key={x.handle} className={k === n ? "on" : ""} onMouseEnter={() => setSel(k)} onClick={() => pick(x)}>
+              <span className="face" style={{ background: x.color ?? "var(--card-2)" }}>{x.face}</span>
+              {x.name}<small>{x.sub}</small>
             </button>
           ))}
         </div>
@@ -258,7 +260,7 @@ export function Composer({ value, set, onSend, placeholder }: { value: string; s
         }} />
       <div className="bt">
         <button type="button" className="tbtn" onClick={() => set(value + (value && !value.endsWith(" ") ? " @" : "@"))} title="Mention">@</button>
-        <button type="button" className={`tbtn ${menu ? "on" : ""}`} onClick={() => setMenu(!menu)} title="Attach">+</button>
+        {!noAttach && <button type="button" className={`tbtn ${menu ? "on" : ""}`} onClick={() => setMenu(!menu)} title="Attach">+</button>}
         <button type="submit" className="send" aria-label="Send"><Ic d="M12 19V5M6 11l6-6 6 6" s={16} /></button>
       </div>
     </form>

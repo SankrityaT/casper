@@ -16,8 +16,8 @@ import NewRoom from "@/components/ws/NewRoom";
 import Summon, { type Summoned } from "@/components/ws/Summon";
 import { SourceCtx } from "@/components/ws/SourcePeek";
 import { BellPage, AgentsPage, LibraryPage, SettingsPage, UsagePage } from "@/components/ws/Pages";
-import LiveRoom, { LiveBells, LiveCanvas } from "@/components/ws/Live";
-import { HUB, listRooms, createRoom, me } from "@/lib/live";
+import LiveRoom, { LiveBells, LiveCanvas, LiveComposer } from "@/components/ws/Live";
+import { HUB, listRooms, createRoom, me, useRoomPeople, kindFor } from "@/lib/live";
 const LIVE = "autopay";
 
 type Page = "room" | "bell" | "agents" | "library" | "settings" | "usage";
@@ -250,12 +250,17 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
       if (dead) return;
       rs.forEach((r) => { if (!ROOMS[r.slug]) ROOMS[r.slug] = { topic: r.topic, msgs: [], cards: [] }; });
       setHubRooms(rs.map((r) => r.slug));
+      if (rs.length) setRoom((cur) => (rs.some((r) => r.slug === cur) ? cur : rs.some((r) => r.slug === "playground") ? "playground" : rs[0].slug));
     }).catch(() => {});
     load();
     const t = setInterval(load, 10000);
     return () => { dead = true; clearInterval(t); };
   }, [full]);
   const isLive = (r: string) => r === LIVE || hubRooms.includes(r);
+  const liveNow = full && isLive(room) && !!HUB.url;
+  const people = useRoomPeople(room, liveNow);
+  const nm = (n: string) => (P[n as Id]?.name ?? n.charAt(0).toUpperCase() + n.slice(1));
+  const color = (n: string) => (P[n as Id]?.color ?? "#6f8fc7");
   const openRoom = (r: string) => { setRoom(r); setPage("room"); setThreadOf(null); setFindThread(false); if (r === LIVE || hubRooms.includes(r)) onView("chat"); };
   const openThread = (i: number) => { setThreadOf(i); setInsp(true); };
   // forward a message into another room (or a DM, which we show as a note here)
@@ -292,7 +297,7 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
           {/* sidebar */}
           <aside className="side">
             <div className="side-top">
-              <button className="space"><span className="sq">E</span>Engineering wing<Ic d="M7 10l5 5 5-5" s={14} /></button>
+              <button className="space"><span className="sq">{liveNow ? "C" : "E"}</span>{liveNow ? "Casper" : "Engineering wing"}<Ic d="M7 10l5 5 5-5" s={14} /></button>
             <div className="acts">
               <button className="pill" onClick={() => setNewRoom(true)}><Ic d="M12 5v14M5 12h14" s={15} />New room</button>
               <button className="pill" onClick={() => setSummonOpen(true)} disabled={summoned.length >= SLOTS.length} title={summoned.length >= SLOTS.length ? "This room is full" : "Summon an agent"}><Ic d="M12 4.5a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15z M12 9v6M9 12h6" s={15} />Summon</button>
@@ -301,10 +306,28 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
             <div className="nav"><a className={page === "bell" ? "on" : ""} onClick={() => setPage("bell")}><Ic d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z" s={16} />The bell{pending > 0 && <span className="badge">{pending}</span>}</a></div>
             <div className="lbl">Rooms in this wing</div>
             <div className="nav">
-              {Object.keys(ROOMS).map((r) => (
+              {(hubRooms.length ? hubRooms : Object.keys(ROOMS)).map((r) => (
                 <a key={r} className={page === "room" && room === r ? "on" : ""} onClick={() => openRoom(r)}><span className="h">#</span>{r}</a>
               ))}
             </div>
+            {liveNow ? (<>
+            <div className="lbl"><span>Agents here</span><span>{people.agents.length}</span></div>
+            <div className="nav">
+              {people.agents.length === 0 && <a onClick={() => setSummonOpen(true)}><small>No agents yet. Summon one, or connect yours.</small></a>}
+              {people.agents.map((n) => (
+                <a key={n} onClick={() => { setPage("room"); onView("chat"); }}>
+                  <span className="av"><Agent kind={kindFor(n) as never} crop="head" className="size-full" /></span>
+                  {nm(n)} <small>{n === "wick" ? "on its computer" : "agent"}</small>
+                  <span className="st" style={{ background: people.speaking === n ? "var(--pumpkin)" : "var(--green)" }} />
+                </a>
+              ))}
+            </div>
+            <div className="lbl"><span>House crew</span><span>2</span></div>
+            <div className="nav">
+              <a><span className="av"><Agent kind="casper" crop="head" className="size-full" /></span>Casper <small>host · answers @casper</small></a>
+              <a><span className="av"><Agent kind="stretch" crop="head" className="size-full" /></span>Stretch <small>decides what reaches you</small></a>
+            </div>
+            </>) : (<>
             <div className="lbl"><span>Agents here</span><span>{here.length}</span></div>
             <div className="nav">
               {here.map((id) => (
@@ -322,7 +345,8 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
                   {speaker === id && <span className="st" style={{ background: "var(--pumpkin)" }} />}</a>
               ))}
             </div>
-            {card && (
+            </>)}
+            {card && !liveNow && (
               <div className="crew-card">
                 <button className="x" onClick={() => setCard(false)} aria-label="Dismiss">×</button>
                 <div className="pic">{(["jack", "batty", "fatso"] as Id[]).map((id) => <span key={id}><Agent kind={P[id].kind!} mood="happy" className="size-full" /></span>)}</div>
@@ -331,7 +355,7 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
                 <button className="pill" onClick={() => setPhoto(true)}>View group photo</button>
               </div>
             )}
-            <div className="me"><span className="pf" style={{ background: "#e2702f" }}>S</span><div><b>Sankritya</b><small>Owner</small></div></div>
+            <div className="me"><span className="pf" style={{ background: color(liveNow ? me() : "sankritya") }}>{nm(liveNow ? me() : "sankritya")[0]}</span><div><b>{nm(liveNow ? me() : "sankritya")}</b><small>{liveNow ? "in this wing" : "Owner"}</small></div></div>
           </aside>
 
           {/* main */}
@@ -339,8 +363,13 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
             <header className="head">
               <h1><span>#</span>{room}</h1>
               <div className="faces">
+                {liveNow ? <>
+                  {people.humans.map((h) => <span key={h} className="pf" style={{ background: color(h) }} title={nm(h)}>{nm(h)[0]}</span>)}
+                  {people.agents.slice(0, 6).map((n) => <span key={n} className="a" title={nm(n)}><Agent kind={kindFor(n) as never} crop="head" className="size-full" /></span>)}
+                </> : <>
                 <span className="pf" style={{ background: "#e2702f" }}>S</span><span className="pf" style={{ background: "#6f5fa8" }}>K</span>
                 {here.map((id) => <span key={id} className="a"><Agent kind={P[id].kind!} crop="head" className="size-full" /></span>)}
+                </>}
               </div>
               <div className="seg">
                 <button className={view === "canvas" ? "on" : ""} onClick={() => onView("canvas")}>Canvas</button>
@@ -474,7 +503,7 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
             <div ref={chatRef} className="chat" style={{ userSelect: "text" }}>
               <div className="thread">
                 <div className="intro">
-                  <span>This is #{room}, in the Engineering wing.</span>
+                  <span>This is #{room}{liveNow ? "" : ", in the Engineering wing"}.</span>
                   <span>Agents here only answer when you @ them, and ask first before they <b>push, spend or post</b>.</span>
                 </div>
                 {room === "autopay-launch" ? (
@@ -511,6 +540,7 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
             </div>
             <div className="compose">
               <TypingBar who={replying && threadOf === null ? replying : !done && room === "autopay-launch" && cur >= 0 && cur < SCRIPT.length - 1 ? SCRIPT[cur + 1].who : draft ? "sankritya" : null} />
+              {isLive(room) && <LiveComposer key={room} room={room} />}
               {!isLive(room) && <Composer value={draft} set={setDraft} onSend={(t, a) => send(t, undefined, a)} placeholder={`Message #${room}, @ an agent to get an answer`} />}
             </div>
           </section>
