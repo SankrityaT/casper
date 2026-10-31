@@ -149,3 +149,30 @@ export class Wing extends Actor {
       .map((r) => ({ slug: r.slug, topic: r.topic, createdAt: r.created_at, createdBy: r.created_by }))
   }
 }
+
+/* A person's own model keys, sealed by the hub before they get here (the actor never sees a plain key). */
+export type KeyInfo = { provider: string; masked: string; addedAt: number }
+
+export class Keys extends Actor {
+  constructor(ctx: ActorContext) {
+    super(ctx)
+    this.db.exec(`CREATE TABLE IF NOT EXISTS keys (provider TEXT PRIMARY KEY, sealed TEXT NOT NULL, masked TEXT NOT NULL, added_at INTEGER NOT NULL)`)
+  }
+  async put(provider: string, sealed: string, masked: string): Promise<KeyInfo> {
+    const at = Date.now()
+    this.db.exec(`INSERT INTO keys (provider, sealed, masked, added_at) VALUES (?, ?, ?, ?) ON CONFLICT(provider) DO UPDATE SET sealed = excluded.sealed, masked = excluded.masked, added_at = excluded.added_at`, provider, sealed, masked, at)
+    return { provider, masked, addedAt: at }
+  }
+  async list(): Promise<KeyInfo[]> {
+    return this.db.exec<{ provider: string; masked: string; added_at: number }>(`SELECT provider AS provider, masked AS masked, added_at AS added_at FROM keys`)
+      .map((r) => ({ provider: r.provider, masked: r.masked, addedAt: r.added_at }))
+  }
+  async remove(provider: string): Promise<boolean> {
+    this.db.exec(`DELETE FROM keys WHERE provider = ?`, provider)
+    return true
+  }
+  /** For the hub only, when it starts this person's own agent. */
+  async sealedFor(provider: string): Promise<string | null> {
+    return this.db.exec<{ sealed: string }>(`SELECT sealed AS sealed FROM keys WHERE provider = ?`, provider)[0]?.sealed ?? null
+  }
+}

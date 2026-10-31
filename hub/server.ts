@@ -5,6 +5,7 @@ import type { ServerWebSocket } from "bun"
 import { actors } from "./generated/index.js"
 import type { RoomEvent } from "./src/actors.ts"
 import { meetingToTasks, triage } from "./src/ai.ts"
+import { seal } from "./src/seal.ts"
 
 /* The Casper hub: stateless. Every write goes to the room's Terse actor (the source of truth, in order), then fans
    out to the browsers watching that room. Kill this process and restart it: the actor still has the log, the claims,
@@ -138,6 +139,30 @@ app.get("/bell", async (c) => {
     for (const e of evs) if (e.kind === "bell" && sum.openAsks.includes(String(e.meta?.askId))) out.push(e)
   }
   return c.json(out)
+})
+
+/* your own model keys: checked with the provider, sealed, stored in your Keys actor; only a masked tail comes back */
+const PROVIDERS: Record<string, { prefix: string; check: (k: string) => Promise<Response> }> = {
+  anthropic: { prefix: "sk-ant-", check: (k) => fetch("https://api.anthropic.com/v1/models?limit=1", { headers: { "x-api-key": k, "anthropic-version": "2023-06-01" }, signal: AbortSignal.timeout(10000) }) },
+  openai: { prefix: "sk-", check: (k) => fetch("https://api.openai.com/v1/models", { headers: { authorization: `Bearer ${k}` }, signal: AbortSignal.timeout(10000) }) },
+}
+const owner = (v: unknown) => { const o = String(v ?? "").toLowerCase(); if (!/^[a-z0-9._-]{1,40}$/.test(o)) throw new HTTPError(400, "Who are you?"); return o }
+app.get("/keys", async (c) => c.json(await actors.Keys.get(`keys.${owner(c.req.query("owner"))}`).list()))
+app.post("/keys", async (c) => {
+  const b = await body(c)
+  const p = PROVIDERS[String(b.provider)]
+  if (!p) throw new HTTPError(400, "Unknown provider.")
+  const k = str(b.key, "key", 400).trim()
+  if (!k.startsWith(p.prefix)) throw new HTTPError(400, `That doesn't look like a ${b.provider} key.`)
+  const r = await p.check(k).catch(() => null)
+  if (!r || r.status === 401 || r.status === 403) throw new HTTPError(400, "The provider rejected that key.")
+  const info = await actors.Keys.get(`keys.${owner(b.owner)}`).put(String(b.provider), seal(k), `${p.prefix}…${k.slice(-4)}`)
+  return c.json(info)
+})
+app.post("/keys/remove", async (c) => {
+  const b = await body(c)
+  await actors.Keys.get(`keys.${owner(b.owner)}`).remove(String(b.provider))
+  return c.json({ ok: true })
 })
 
 app.get("/room/:room/events", async (c) => c.json(await room(c.req.param("room")).since(Number(c.req.query("since") ?? 0) || 0)))
