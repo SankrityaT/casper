@@ -1,0 +1,5 @@
+# created by kinjal
+.env
+.state/
+node_modules/
+out.jsonl

@@ -1,0 +1,24 @@
+{
+  "//": "created by kinjal",
+  "name": "casper-relay-mirror",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "setup": "bun --env-file=../../.env run setup.ts",
+    "mirror": "./run-mirror.sh",
+    "dm-test": "bun --env-file=../../.env run dm-test.ts",
+    "agents": "bun --env-file=../../.env run agents.ts",
+    "steer": "bun --env-file=../../.env run steer.ts",
+    "bridge": "bun --env-file=../../.env run bridge.ts"
+  },
+  "dependencies": {
+    "@agent-relay/sdk": "15.0.1",
+    "@anthropic-ai/sdk": "^1.3.0",
+    "openai": "^7.47.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "typescript": "^7.0.2"
+  }
+}
