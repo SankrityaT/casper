@@ -180,7 +180,7 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
   const summon = (a: Summoned) => {
     if (isLive(room) && HUB.url) {
       fetch(`${HUB.url}/room/${encodeURIComponent(room)}/summon`, { method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name: a.name, task: a.job || "Pick an open task in this room and do it.", by: me(), approver: a.approver }) })
+        body: JSON.stringify({ name: a.name.toLowerCase(), task: a.job || "Pick an open task in this room and do it.", by: me(), approver: a.approver, where: a.runsOn === "Its own computer" || !a.runsOn ? "boat" : "boat" }) })
         .then(async (r) => { if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "Couldn't summon."); setSummonOpen(false); })
         .catch((e) => alert((e as Error).message));
       return;
@@ -502,10 +502,10 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
             {findRoom && view === "chat" && <div className="find-room"><FindBar key={room} scope={chatRef} label={`#${room}`} onClose={() => setFindRoom(false)} /></div>}
             <div ref={chatRef} className="chat" style={{ userSelect: "text" }}>
               <div className="thread">
-                <div className="intro">
+                {!isLive(room) && <div className="intro">
                   <span>This is #{room}{liveNow ? "" : ", in the Engineering wing"}.</span>
                   <span>Agents here only answer when you @ them, and ask first before they <b>push, spend or post</b>.</span>
-                </div>
+                </div>}
                 {room === "autopay-launch" ? (
                   <>
                     <div className="day">Tuesday</div>
@@ -518,7 +518,7 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
                     ))}
                   </>
                 ) : isLive(room) ? (
-                  <LiveRoom key={room} room={room} />
+                  <LiveRoom key={room} room={room} onSummon={() => setSummonOpen(true)} />
                 ) : (
                   <>
                     <div className="day">{ROOMS[room].msgs[0]?.at === "now" ? "Today" : "Earlier"}</div>
