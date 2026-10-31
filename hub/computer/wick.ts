@@ -61,6 +61,21 @@ async function draft(): Promise<string> {
 const findRef = (refs: Record<string, { role?: string; name?: string }>, role: string, name?: RegExp) =>
   Object.entries(refs).find(([, r]) => r.role === role && (!name || name.test(r.name ?? "")))?.[0];
 
+// Claim the launch card from the hub's meeting cards, if there is one.
+const HUB = (process.env.HUB_URL ?? "").replace(/\/$/, "");
+if (HUB) {
+  try {
+    const events = (await (await fetch(`${HUB}/room/${ROOM}/events?since=0`)).json()) as { meta?: { tasks?: { id: string; title: string }[] } }[];
+    const card = [...events].reverse().find((e) => e.meta?.tasks?.length)?.meta?.tasks?.find((t) => /launch post|clip/i.test(t.title));
+    if (card) {
+      const r = await fetch(`${HUB}/room/${ROOM}/claim`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ task: card.id, agent: AGENT }) });
+      console.log(`claim ${card.id} (${card.title}): ${r.status}`);
+    }
+  } catch (err) {
+    console.warn("claim failed:", (err as Error).message);
+  }
+}
+
 const text = await draft();
 console.log(`draft: ${text}`);
 

@@ -19,6 +19,7 @@ export const TASKS: TaskCard[] = [
 ];
 
 export const taskById = (id: string) => TASKS.find((t) => t.id === id);
+export const LAUNCH_TASK = /launch post|clip/i;
 
 /**
  * Cards from the hub's meeting extraction: the latest event with meta.tasks [{id,title}] (the hub
@@ -30,10 +31,17 @@ export async function refreshTasks(room = DM_ROOM): Promise<boolean> {
   try {
     const res = await fetch(`${HUB_URL}/room/${encodeURIComponent(room)}/events?since=0`);
     if (!res.ok) return false;
-    const events = (await res.json()) as { meta?: { tasks?: { id?: string; title: string; brief?: string }[] } }[];
+    const events = (await res.json()) as { meta?: { tasks?: { id?: string; title: string; brief?: string; why?: string }[] } }[];
     const latest = [...events].reverse().find((e) => Array.isArray(e.meta?.tasks) && e.meta!.tasks!.length);
     if (!latest) return false;
-    const cards = latest.meta!.tasks!.map((t, i) => ({ id: t.id ?? `t${i + 1}`, title: t.title, brief: t.brief ?? t.title }));
+    const cards = latest
+      .meta!.tasks!.map((t: { id?: string; title: string; brief?: string; why?: string }, i) => ({
+        id: t.id ?? `t${i + 1}`,
+        title: t.title,
+        brief: t.brief ?? t.why ?? t.title,
+      }))
+      // The launch post/clip is wick's job on its computer, not the coders'.
+      .filter((t) => !LAUNCH_TASK.test(t.title));
     TASKS.splice(0, TASKS.length, ...cards);
     return true;
   } catch {
