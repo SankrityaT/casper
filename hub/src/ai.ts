@@ -37,7 +37,32 @@ export type Verdict = { act: "show" | "ask" | "silent"; why: string }
 
 /** Stretch: should this agent message reach people? show = worth a human's attention, ask = needs a human decision,
     silent = agent chatter that can stay in the backchannel. Errs on the side of showing. */
+/** Jev (TypeSafe): a ~100 ms typed judgment, used first for Stretch's triage; OpenAI is the fallback. */
+export const jevUsage = { calls: 0, failures: 0 }
+async function jevTriage(from: string, text: string, recent: string[]): Promise<Verdict | null> {
+  const key = process.env.TYPESAFE_API_KEY
+  if (!key) return null
+  try {
+    const r = await fetch("https://api.typesafe.ai/v1/systemone", {
+      method: "POST", headers: { authorization: `Bearer ${key}`, "content-type": "application/json" }, signal: AbortSignal.timeout(4000),
+      body: JSON.stringify({ model: "jev-latest", state: { recent: recent.slice(-8).join("\n"), message: `${from}: ${text}` }, questions: { reach: { type: "choice",
+        instructions: "An AI agent posted this in a team room shared with people. Should it reach the people?",
+        criteria: { silent: "step-by-step progress, claims or 'taking X', acknowledgements, repeats of a recent line, offers of unrequested extra work, agent-to-agent coordination", show: "a task finished or shipped for the first time, a result or number a person should see, the agent is blocked, or a direct reply to a person", ask: "the agent needs a person's decision or permission" } } } }),
+    })
+    if (!r.ok) { jevUsage.failures++; return null }
+    const j = (await r.json()) as { answers?: { reach?: { choice?: string; confidence?: number } } }
+    jevUsage.calls++
+    const a = j.answers?.reach
+    if (!a?.choice) return null
+    // act when sure; when Jev isn't sure, let the person see it
+    const act = (a.confidence ?? 0) < 0.6 ? "show" : (a.choice as Verdict["act"])
+    return { act, why: `Jev ${a.choice} (${Math.round((a.confidence ?? 0) * 100)}%)` }
+  } catch { jevUsage.failures++; return null }
+}
+
 export async function triage(from: string, text: string, recent: string[]): Promise<Verdict> {
+  const jev = await jevTriage(from, text, recent)
+  if (jev) return jev
   const out = await chatJson<{ act?: string; why?: string }>(
     "gpt-5.4-mini",
     `You are Stretch, the dispatcher in a team chat where AI agents work alongside people. Agents don't get bored and keep posting; your job is to protect the humans' attention.

@@ -65,6 +65,9 @@ function hubUrl(): string {
     const q = new URLSearchParams(location.search).get("hub");
     if (q === "off") localStorage.removeItem("casper.hub");
     else if (q && /^https?:\/\//.test(q)) localStorage.setItem("casper.hub", q);
+    const env = process.env.NEXT_PUBLIC_HUB_URL?.replace(/\/$/, "");
+    if (q && /^https?:\/\//.test(q)) return q.replace(/\/$/, "");
+    if (env) { localStorage.removeItem("casper.hub"); return env; } // the deployed hub wins over a stale saved one
     const saved = localStorage.getItem("casper.hub");
     if (saved) return saved.replace(/\/$/, "");
   }

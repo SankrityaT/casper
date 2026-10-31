@@ -4,7 +4,7 @@ import { createBunWebSocket } from "hono/bun"
 import type { ServerWebSocket } from "bun"
 import { actors } from "./generated-cloud/index.js"
 import type { RoomEvent } from "./src/actors.ts"
-import { answerFromRoom, assign, dispatch, meetingToTasks, triage, usage } from "./src/ai.ts"
+import { answerFromRoom, assign, dispatch, jevUsage, meetingToTasks, triage, usage } from "./src/ai.ts"
 import { seal } from "./src/seal.ts"
 import { summon, stop, status, summonOnBoat, boatAgents, deliver, localDir } from "./src/summon.ts"
 
@@ -342,7 +342,7 @@ app.get("/wing", async (c) => {
     bells: bells.sort((a, b) => b.ts - a.ts),
     computers: [...computers.values()].sort((a, b) => b.ts - a.ts),
     library: library.sort((a, b) => b.ts - a.ts),
-    usage: { ai: usage, totals: { agentMessages: [...agents.values()].reduce((n, a) => n + a.total, 0), reached: [...agents.values()].reduce((n, a) => n + a.reached, 0), quiet: [...agents.values()].reduce((n, a) => n + a.quiet, 0), relay: [...agents.values()].reduce((n, a) => n + a.relay, 0) } },
+    usage: { ai: usage, jev: jevUsage, totals: { agentMessages: [...agents.values()].reduce((n, a) => n + a.total, 0), reached: [...agents.values()].reduce((n, a) => n + a.reached, 0), quiet: [...agents.values()].reduce((n, a) => n + a.quiet, 0), relay: [...agents.values()].reduce((n, a) => n + a.relay, 0) } },
   }
   wingCache = { at: Date.now(), body }
   return c.json(body)
