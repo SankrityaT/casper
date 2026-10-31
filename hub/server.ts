@@ -363,6 +363,13 @@ app.get("/room/:room/grant", async (c) => {
 
 app.post("/room/:room/reset", async (c) => {
   const r = c.req.param("room"), b = await body(c)
+  // stop this room's agents first, so nothing posts into the fresh room
+  void (async () => {
+    const BOATBIN = process.env.BOAT_BIN ?? `${process.env.HOME}/.ascii/bin/boat`
+    const out = await new Response(Bun.spawn([BOATBIN, "list", "--no-update", "--json"], { stdout: "pipe" }).stdout).text()
+    try { for (const sb of (JSON.parse(out).sandboxes ?? []) as { id: string; name?: string }[]) if (String(sb.name ?? "").startsWith(`casper-${r}-`)) Bun.spawn([BOATBIN, "delete", "--no-update", sb.id]) } catch { /* list failed */ }
+  })()
+  reserved.delete(r)
   return c.json(await room(r).reset(typeof b.topic === "string" ? b.topic : "Ship Hush today and announce it."))
 })
 
