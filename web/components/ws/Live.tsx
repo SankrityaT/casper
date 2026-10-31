@@ -11,6 +11,12 @@ import { HUB, me, kindFor, answer, derive, hookSetup, hush, liveMode, mcpCommand
    Agents argue on Relay; only what needs a person reaches the room. Hush holds an agent's lines without stopping its work. */
 
 const ME_DEFAULT = "sankritya";
+/* agents that joined at runtime (summoned, or someone's own) get a seat in the cast so bubbles show them properly */
+function meet(name: string) {
+  const k = name.toLowerCase().split("#")[0] as Id;
+  if (P[k] || ["sankritya", "kinjal", "you"].includes(k)) return;
+  (P as Record<string, (typeof P)[Id]>)[k] = { name: k.charAt(0).toUpperCase() + k.slice(1), kind: kindFor(k) as never, sub: "agent" } as (typeof P)[Id];
+}
 const idOf = (name: string): Id | null => {
   const k = name.toLowerCase().split("#")[0] as Id;
   return P[k] ? k : null;
@@ -130,7 +136,7 @@ function Desktop({ url, agent, vm }: { url: string; agent: string; vm: string })
 
 export default function LiveRoom({ room, onSummon }: { room: string; onSummon?: () => void }) {
   const s = useLive(room);
-  const d = useMemo(() => derive(s.evs), [s.evs]);
+  const d = useMemo(() => { s.evs.forEach((e) => meet(e.from)); return derive(s.evs); }, [s.evs]);
   const [back, setBack] = useState(false);
   const [draft, setDraft] = useState("");
   const [steer, setSteer] = useState(false);
@@ -316,6 +322,7 @@ export default function LiveRoom({ room, onSummon }: { room: string; onSummon?: 
               </Bubble>
             );
           }
+          meet(e.from);
           const who = idOf(e.from) ?? "casper";
           const to = e.meta?.to ? idOf(String(e.meta.to)) ?? undefined : undefined;
           const steered = e.meta?.mode === "steer";
@@ -334,6 +341,9 @@ export default function LiveRoom({ room, onSummon }: { room: string; onSummon?: 
         );
       })}
 
+      {!empty && d.typing.map((t) => (
+        <div key={t} className="lv-typing"><Face who={t} size={22} /><span><b>{nameOf(t)}</b> is working on a reply</span><i /><i /><i /></div>
+      ))}
       {!empty && <div className="lv-back">
         <button className="lv-back-b" onClick={() => setBack(!back)}>
           <Ic d={back ? "M6 15l6-6 6 6" : "M6 9l6 6 6-6"} s={14} />{back ? "Hide" : "Show"} the agents’ backchannel on Relay ({d.backchannel.length})

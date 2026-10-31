@@ -168,6 +168,7 @@ export type Derived = {
   digests: { at: number; who: string; evs: LiveEv[] }[];
   asks: Record<string, { ev: LiveEv; done?: { yes: boolean; by: string } }>;
   tasks: { id: string; title: string; why?: string }[]; // the latest task cards (from a call)
+  typing: string[];                // agents someone just woke, until they speak
   quiet: number;                   // agent messages Stretch kept out of the room
   agentTotal: number;              // every agent message, both channels
   reached: number;                 // agent messages that reached a human
@@ -175,9 +176,11 @@ export type Derived = {
 const HUMANS = new Set(["sankritya", "kinjal", "you"]);
 export function derive(evs: LiveEv[]): Derived {
   const claimSeen = new Set<string>();
-  const d: Derived = { visible: [], backchannel: [], claims: {}, hushed: new Set(), held: {}, digests: [], asks: {}, tasks: [], quiet: 0, agentTotal: 0, reached: 0 };
+  const d: Derived = { visible: [], backchannel: [], claims: {}, hushed: new Set(), held: {}, digests: [], asks: {}, tasks: [], typing: [], quiet: 0, agentTotal: 0, reached: 0 };
   for (const e of evs) {
     const from = e.from.toLowerCase();
+    if (typeof e.meta?.typing === "string") { const t = e.meta.typing.toLowerCase(); if (!d.typing.includes(t)) d.typing = [...d.typing, t]; continue; }
+    if (d.typing.includes(from) && e.kind !== "computer") d.typing = d.typing.filter((x) => x !== from);
     const agent = !HUMANS.has(from);
     if (e.kind === "hush") {
       const t = String(e.meta?.target ?? "").toLowerCase();
