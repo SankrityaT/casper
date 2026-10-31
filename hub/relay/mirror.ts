@@ -75,7 +75,8 @@ async function emit(n: Normalized) {
   const event: CasperEvent = {
     seq: n.seq ?? seq,
     room: isDm ? DM_ROOM : channelRoom(n.channel) ?? n.channel ?? DM_ROOM,
-    kind: "relay",
+    // Room posts show in the room (msg); DMs are the backstage channel (relay).
+    kind: isDm ? "relay" : "msg",
     from: n.from,
     text: n.text,
     ts: n.ts ?? new Date().toISOString(),
