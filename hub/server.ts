@@ -100,7 +100,7 @@ app.post("/room/:room/post", async (c) => {
       const vmEv = [...evs].reverse().find((e) => e.kind === "computer" && String(e.meta?.agent ?? e.from).toLowerCase() === to && typeof e.meta?.vm === "string" && e.meta?.backend === "boat")
       const ok = deliver({ vm: vmEv?.meta?.vm as string | undefined, dir: localDir(r, to) }, ev.from, ev.text, ev.meta?.mode === "steer")
       if (ok) {
-        const note = await room(r).append({ room: r, kind: "msg", from: "casper", text: `Woke ${to} with your message${vmEv ? ` on its computer (boat ${vmEv.meta!.vm})` : ""}. It will answer here.`, ts: Date.now(), meta: { to: ev.from, triage: { act: "silent", why: "delivery note" } } })
+        const note = await room(r).append({ room: r, kind: "msg", from: "casper", text: `${to} is on it.`, ts: Date.now(), meta: { typing: to, to: ev.from, triage: { act: "silent", why: "typing" } } })
         fanout(r, note)
       } else if (!evs.some((e) => e.from.toLowerCase() === to && e.kind !== "computer" && Date.now() - (typeof e.ts === "number" ? e.ts : Date.parse(String(e.ts))) < 5 * 60_000)) {
         // not summoned here and not active lately: it may be someone's own agent that reads the room when it next runs
@@ -211,7 +211,7 @@ app.post("/room/:room/summon", async (c) => {
     const hello = await room(r).append({ room: r, kind: "msg", from: "casper", text: `${by} summoned ${name} onto its own boat.dev computer. It will claim a task, post progress, and ring the bell before it pushes.`, ts: Date.now(), meta: { summoned: name, triage: { act: "show", why: "summon" } } })
     fanout(r, hello)
     summonOnBoat({ room: r, name, task, by, approver, hub: "", publicHub: process.env.HUB_PUBLIC_URL ?? "" }, say)
-      .catch((e) => say(`Couldn't start ${name}'s computer: ${(e as Error).message}`))
+      .catch((e) => say(`I couldn't get my computer ready (${(e as Error).message}). Summon me again to retry.`))
     return c.json({ ok: true, where: "boat" })
   }
   const res = summon({ room: r, name, task, by, hub: `http://127.0.0.1:${process.env.PORT ?? 8790}`, approver })

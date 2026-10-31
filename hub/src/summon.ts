@@ -32,15 +32,9 @@ export function summon(i: SummonInput): { dir: string; branch: string } {
   }))
   const mcp = join(dir, ".casper-mcp.json")
   writeFileSync(mcp, JSON.stringify({ mcpServers: { casper: { type: "http", url: `${i.hub}/mcp?room=${encodeURIComponent(i.room)}&agent=${encodeURIComponent(i.name)}` } } }))
-  const prompt = `You are ${i.name}, a coding agent ${i.by} summoned into the Casper room #${i.room}. You are working in a git worktree of the Casper repo on branch ${branch}.
-Your job: ${i.task}
-
-How to work in Casper:
-1. Call read_room and tasks first. If your job matches an open task, claim it (exact title). If someone else owns it, post that and pick something else or stop.
-2. Post short progress to the room when something real happens (started, done, blocked). Don't chat.
-3. Do the work with Read/Edit/Write. Keep changes small and in the style of the code around them.
-4. Commit with git (one command), then run "git push origin ${branch}" as a separate command. The push is gated: the first attempt rings the bell for ${i.approver}. When blocked, call check_bell every ~30s (use read_room meanwhile) until it's approved, then push again. If declined, post what you'd change and stop.
-5. Finish by posting a 2-line summary with the branch name.`
+  const prompt = `You are ${i.name}, an agent in the Casper room #${i.room}, working in a git worktree of the Casper repo on branch ${branch}.
+${i.by} summoned you and asked: ${i.task}
+The casper tools let you read the room, see and claim tasks, post to people, and ring the bell when you need someone's yes (pushing is gated on it). Talk like a teammate, not a log.`
   const log = openSync(join(dir, ".casper-agent.log"), "a")
   const proc = spawn("claude", ["-p", prompt, "--mcp-config", mcp, "--max-turns", "60",
     "--allowedTools", "mcp__casper__read_room,mcp__casper__post,mcp__casper__claim,mcp__casper__tasks,mcp__casper__ring_bell,mcp__casper__check_bell,Read,Edit,Write,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git log:*),Bash(sleep:*)"],
@@ -69,7 +63,10 @@ const boatRunning = new Map<string, { vm: string; started: number }>()
 function boat(args: string[], timeoutMs = 180_000): string {
   const r = Bun.spawnSync([BOAT, args[0], "--no-update", ...args.slice(1)], { stdout: "pipe", stderr: "pipe", timeout: timeoutMs })
   const out = r.stdout.toString() + r.stderr.toString()
-  if (r.exitCode !== 0) throw new Error(`boat ${args[0]}: ${out.slice(-300)}`)
+  if (r.exitCode !== 0) {
+    const m = /"stderr":"([^"]*)"/.exec(out)?.[1] ?? /"error":"([^"]*)"/.exec(out)?.[1] ?? out
+    throw new Error(m.replace(/\\n/g, " ").replace(/\s+/g, " ").trim().slice(0, 160))
+  }
   return out
 }
 const boatExec = (vm: string, cmd: string) => {
@@ -115,14 +112,9 @@ export async function summonOnBoat(i: SummonInput & { publicHub: string }, say: 
     `test -x ~/.casper/push-gate.sh`,
     `python3 -c "import json,os; p=os.path.expanduser('~/.claude/settings.json'); s=json.load(open(p)) if os.path.exists(p) else {}; s.setdefault('hooks',{})['PreToolUse']=[{'matcher':'Bash','hooks':[{'type':'command','command':'CASPER_HUB=${i.publicHub} CASPER_ROOM=${i.room} CASPER_AGENT=${i.name} CASPER_APPROVER=${i.approver} /home/user/.casper/push-gate.sh'}]}]; json.dump(s,open(p,'w'))"`,
   ].join("\n"))
-  const prompt = `You are ${i.name}, a coding agent on your own cloud computer (boat ${vm}), summoned by ${i.by} into the Casper room #${i.room}. Work in ~/casper on branch ${branch}.
-Your job: ${i.task}
-
-1. Call read_room and tasks. If your job matches an open task, claim it (exact title). If someone else owns it, post that and pick something else or stop.
-2. Post short progress only when something real happens (started, done, blocked).
-3. Do the work with Read/Edit/Write, small and in the style of the code around it.
-4. git add and git commit in one command, then "git push origin ${branch}" as a separate command. The first push rings the bell for ${i.approver}; call check_bell every ~30s until it's answered, then push again. If declined, post what you'd change and stop.
-5. Finish with a 2-line summary that names the branch.`
+  const prompt = `You are ${i.name}, an agent in the Casper room #${i.room}, on your own computer (boat ${vm}) with the Casper repo at ~/casper on branch ${branch}.
+${i.by} summoned you and asked: ${i.task}
+The casper tools let you read the room, see and claim tasks, post to people, and ring the bell when you need someone's yes (pushing is gated on it). Talk like a teammate, not a log.`
   pushText(vm, "/home/user/.casper-task", { "prompt.txt": prompt })
   const tools = "mcp__casper__read_room,mcp__casper__post,mcp__casper__claim,mcp__casper__tasks,mcp__casper__ring_bell,mcp__casper__check_bell,Read,Edit,Write,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git log:*),Bash(sleep:*)"
   // run it in a terminal on the VM's desktop so people can watch it work; headless if there's no desktop terminal
@@ -141,7 +133,7 @@ export const boatAgents = (room: string) => [...boatRunning.entries()].filter(([
    Claude Code session (--continue) on its computer with the message, so it answers in the room. */
 const TOOLS_ALL = "mcp__casper__read_room,mcp__casper__post,mcp__casper__claim,mcp__casper__tasks,mcp__casper__ring_bell,mcp__casper__check_bell,Read,Edit,Write,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git log:*),Bash(sleep:*)"
 export function deliver(where: { vm?: string; dir?: string }, from: string, text: string, steer: boolean): boolean {
-  const msg = `${from} (a person in the room) says to you: "${text}"${steer ? " This is a steer: change what you're doing now." : ""} Answer them in the room with the post tool (to: "${from}"), and do what they ask if it's within your job.`
+  const msg = `${from} in the room: ${text}${steer ? "\n(${from} marked this as a steer.)" : ""}`
   if (where.vm) {
     pushText(where.vm, "/home/user/.casper-task", { "reply.txt": msg })
     boat(["exec", where.vm, "--detach", `cd ~/casper && ANTHROPIC_API_KEY=$(cat ~/.casper-keys/anthropic) claude -p --continue "$(cat ~/.casper-task/reply.txt)" --max-turns 30 --allowedTools '${TOOLS_ALL}' >> ~/agent.log 2>&1`])
