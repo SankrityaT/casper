@@ -428,6 +428,13 @@ export function LiveCanvas({ room }: { room: string }) {
       })}
       <div className="lv-cv-bells">
         {open.map((a) => <BellCard key={String(a.ev.meta?.askId)} ev={a.ev} room={room} />)}
+        {(() => {
+          const byAgent = new Map<string, LiveEv>();
+          for (const e of s.evs) if (e.kind === "computer" && (typeof e.meta?.stream === "string" || typeof e.meta?.desktopUrl === "string")) byAgent.set(String(e.meta?.agent ?? e.from), e);
+          return [...byAgent.entries()].map(([agent, e]) => typeof e.meta?.stream === "string"
+            ? <Computer key={agent} stream={String(e.meta!.stream)} agent={agent} />
+            : <Desktop key={agent} url={String(e.meta!.desktopUrl)} agent={agent} vm={String(e.meta?.vm ?? "")} />);
+        })()}
       </div>
       {last && <div className="lv-cv-say">{nameOf(last.from)} → {nameOf(String(last.meta?.to ?? "room"))}: {last.text}</div>}
     </div>

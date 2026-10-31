@@ -857,3 +857,7 @@
 .ws .lv-blank-acts b{font-size:14px}
 .ws .lv-blank-acts small{font-size:12.5px;color:var(--ink-3);line-height:1.4}
 @media (max-width:900px){.ws .lv-blank-acts{grid-template-columns:minmax(0,1fr)}}
+.ws .lv-cv-bells{width:34%;min-width:300px}
+.ws .lv-cv-bells .lv-pc{margin:0}
+.ws .lv-cv-bells .lv-pc-h .pill:not(.white){display:none}
+.ws .lv-cv-bells .lv-pc-h .pill.white{display:inline-flex}
