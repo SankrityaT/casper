@@ -58,14 +58,26 @@ export function ingest(room: string, list: LiveEv[]) {
 }
 function setStatus(room: string, st: RoomState["status"]) { const s = state(room); if (s.status !== st) { s.status = st; emit(room); } }
 
-export const HUB = process.env.NEXT_PUBLIC_HUB_URL?.replace(/\/$/, "") || "";
+/* The hub's address: ?hub=<url> (remembered in this browser) beats the build-time NEXT_PUBLIC_HUB_URL,
+   because a tunnel URL changes when the hub restarts. ?hub=off forgets it. */
+function hubUrl(): string {
+  if (typeof window !== "undefined") {
+    const q = new URLSearchParams(location.search).get("hub");
+    if (q === "off") localStorage.removeItem("casper.hub");
+    else if (q && /^https?:\/\//.test(q)) localStorage.setItem("casper.hub", q);
+    const saved = localStorage.getItem("casper.hub");
+    if (saved) return saved.replace(/\/$/, "");
+  }
+  return process.env.NEXT_PUBLIC_HUB_URL?.replace(/\/$/, "") || "";
+}
+export const HUB = { get url() { return hubUrl(); } };
 
 /* ---------- sources ---------- */
 function connectHub(room: string) {
   let ws: WebSocket | null = null, dead = false, wait = 500;
   const open = () => {
     if (dead) return;
-    const url = `${HUB.replace(/^http/, "ws")}/room/${encodeURIComponent(room)}/socket?since=${state(room).lastSeq}`;
+    const url = `${HUB.url.replace(/^http/, "ws")}/room/${encodeURIComponent(room)}/socket?since=${state(room).lastSeq}`;
     ws = new WebSocket(url);
     ws.onopen = () => { wait = 500; setStatus(room, "live"); };
     ws.onmessage = (m) => {
@@ -108,7 +120,7 @@ export function liveMode(): "hub" | "file" | "sim" {
     const q = new URLSearchParams(location.search).get("live");
     if (q === "sim" || q === "file" || q === "hub") return q;
   }
-  return HUB ? "hub" : "sim";
+  return HUB.url ? "hub" : "sim";
 }
 
 export function useLive(room: string) {
@@ -123,7 +135,7 @@ export function useLive(room: string) {
 
 /* ---------- actions: go to the hub when there is one, otherwise apply locally ---------- */
 async function hubPost(room: string, path: string, body: unknown) {
-  const r = await fetch(`${HUB}/room/${encodeURIComponent(room)}/${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const r = await fetch(`${HUB.url}/room/${encodeURIComponent(room)}/${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   if (!r.ok && r.status !== 409) throw new Error(`hub ${path} ${r.status}`);
   return r.json().catch(() => ({}));
 }

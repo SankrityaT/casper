@@ -49,6 +49,67 @@ function BellCard({ ev, done, room }: { ev: LiveEv; done?: { yes: boolean; by: s
   );
 }
 
+
+/* An agent's computer, live: JPEG frames over a WebSocket from agent-browser in the VM. Take over hands you the
+   mouse and keyboard; the agent's own clicks wait until you hand it back. */
+function Computer({ stream, agent }: { stream: string; agent: string }) {
+  const img = useRef<HTMLImageElement>(null);
+  const sock = useRef<WebSocket | null>(null);
+  const [st, setSt] = useState<"connecting" | "live" | "down">("connecting");
+  const [url, setUrl] = useState("");
+  const [mine, setMine] = useState(false);
+  const [open, setOpen] = useState(true);
+  useEffect(() => {
+    let dead = false, t: ReturnType<typeof setTimeout>;
+    const go = () => {
+      if (dead) return;
+      const ws = new WebSocket(stream.replace(/^http/, "ws"));
+      sock.current = ws;
+      ws.onopen = () => setSt("live");
+      ws.onmessage = (m) => {
+        try {
+          const d = JSON.parse(String(m.data));
+          if (d.type === "frame" && img.current) img.current.src = `data:image/jpeg;base64,${d.data}`;
+          else if (d.url || d.type === "url") setUrl(String(d.url ?? ""));
+          else if (d.type === "takeover") setMine(!!d.on && d.by === "Sankritya");
+        } catch { /* skip */ }
+      };
+      ws.onclose = () => { setSt("down"); t = setTimeout(go, 2000); };
+    };
+    go();
+    return () => { dead = true; clearTimeout(t); sock.current?.close(); };
+  }, [stream]);
+  const send = (m: unknown) => { if (sock.current?.readyState === 1) sock.current.send(JSON.stringify(m)); };
+  const take = (on: boolean) => { send({ type: "takeover", on, by: "Sankritya" }); setMine(on); };
+  const point = (e: React.MouseEvent<HTMLImageElement>, type: string) => {
+    if (!mine || !img.current) return;
+    const r = img.current.getBoundingClientRect();
+    const x = Math.round(((e.clientX - r.left) / r.width) * (img.current.naturalWidth || 1280));
+    const y = Math.round(((e.clientY - r.top) / r.height) * (img.current.naturalHeight || 720));
+    send({ type: "input_mouse", eventType: type, x, y, button: "left", clickCount: 1 });
+  };
+  return (
+    <div className="lv-pc">
+      <div className="lv-pc-h">
+        <Face who={agent} size={18} /><b>{nameOf(agent)}’s computer</b>
+        <span className={`lv-st ${st === "live" ? "live" : "offline"}`}><i />{st === "live" ? (mine ? "You have it" : "Live") : st === "down" ? "Reconnecting…" : "Connecting…"}</span>
+        {url && <small className="lv-pc-url">{url}</small>}
+        <span className="lv-grow" />
+        {open && <button className={`pill ${mine ? "" : "white"}`} onClick={() => take(!mine)}>{mine ? "Hand it back" : "Take over"}</button>}
+        <button className="pill" onClick={() => setOpen(!open)}>{open ? "Hide" : "Show"}</button>
+      </div>
+      {open && (
+        <div className={`lv-pc-screen ${mine ? "mine" : ""}`} tabIndex={0}
+          onKeyDown={(e) => { if (mine) { e.preventDefault(); send({ type: "input_keyboard", eventType: "keyDown", key: e.key, text: e.key.length === 1 ? e.key : undefined }); } }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img ref={img} alt={`${nameOf(agent)}’s screen`} onMouseDown={(e) => point(e, "mousePressed")} onMouseUp={(e) => point(e, "mouseReleased")} draggable={false} />
+          {st !== "live" && <div className="lv-pc-wait">Waiting for the screen…</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function LiveRoom({ room }: { room: string }) {
   const s = useLive(room);
   const d = useMemo(() => derive(s.evs), [s.evs]);
@@ -105,6 +166,11 @@ export default function LiveRoom({ room }: { room: string }) {
           ))}
         </div>
       )}
+
+      {(() => {
+        const pc = [...s.evs].reverse().find((e) => e.kind === "computer" && typeof e.meta?.stream === "string");
+        return pc ? <Computer stream={String(pc.meta!.stream)} agent={String(pc.meta?.agent ?? pc.from)} /> : null;
+      })()}
 
       {d.visible.length === 0 && <div className="lv-empty">Waiting for the first event{liveMode() === "file" ? " from the Relay mirror" : ""}…</div>}
 
