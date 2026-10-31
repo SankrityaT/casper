@@ -7,7 +7,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { AgentRelay } from "@agent-relay/sdk";
 import { loadAgents, roomChannel } from "../relay/state";
 
-const BASE = `http://localhost:${process.env.COMPUTER_PORT ?? 8790}`;
+const BASE = `http://localhost:${process.env.COMPUTER_PORT ?? 8791}`;
 const AGENT = "wick";
 const ROOM = process.env.CASPER_DM_ROOM ?? "autopay";
 
@@ -64,7 +64,7 @@ const findRef = (refs: Record<string, { role?: string; name?: string }>, role: s
 const text = await draft();
 console.log(`draft: ${text}`);
 
-await call("open", { url: `${BASE}/composer` });
+await call("open", { url: "composer" });
 await relayPost("On my computer: drafting the autopay launch post.");
 
 const snap = await call("act", { cmd: "snapshot" });

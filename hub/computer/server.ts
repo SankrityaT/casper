@@ -9,16 +9,21 @@
 //                                  agent-browser runs with --confirm-actions; a confirmation on a risky
 //                                  label (Post, Send, Delete, Pay...) rings the bell and waits for /answer,
 //                                  anything else is auto-approved
-//   POST /computer/:agent/answer   {askId, yes, by}   (the hub's /room/:room/answer can forward here)
+//   POST /computer/:agent/answer   {askId, yes, by}   (or answer in the room: the hub's /room/:room/answer is polled)
 //   GET  /computer/:agent/state
-//   GET  /composer                 stand-in launch composer page wick drafts the post in
+//   GET  /composer                 stand-in launch composer page (local backend; on boat it's a file on the VM)
+//   COMPUTER_BACKEND=boat runs the browser on the boat VM (bun run boat-setup first)
 //
 // Events (kind "computer" | "bell" | "approve") go to out.jsonl + the hub via ../relay/state publish().
 import { join } from "node:path";
-import { publish } from "../relay/state";
-import { Browser } from "./browser";
+import { HUB_URL, publish } from "../relay/state";
+import { BACKEND, Browser } from "./browser";
 
-const PORT = Number(process.env.COMPUTER_PORT ?? 8790);
+const PORT = Number(process.env.COMPUTER_PORT ?? 8791); // the hub owns 8790
+// How the room/web reaches this server (a tunnel URL in the demo); goes into meta.stream.
+const PUBLIC = (process.env.COMPUTER_PUBLIC_URL ?? `http://localhost:${PORT}`).replace(/\/$/, "");
+const streamUrl = (agent: string) => `${PUBLIC.replace(/^http/, "ws")}/computer/${agent}/stream`;
+const BELL_FOR = process.env.COMPUTER_BELL_FOR ?? "kinjal";
 const ROOM = process.env.CASPER_DM_ROOM ?? "autopay";
 const RISKY = /\b(post|publish|send|tweet|share|delete|remove|pay|buy|purchase|submit|merge|deploy)\b/i;
 const ANSWER_TIMEOUT_MS = Number(process.env.COMPUTER_ANSWER_TIMEOUT_MS ?? 5 * 60_000);
@@ -51,7 +56,17 @@ function computer(agent: string): Computer {
 }
 
 const say = (kind: "computer" | "bell" | "approve", from: string, text: string, meta: Record<string, unknown>) =>
-  publish({ room: ROOM, kind, from, text, ts: new Date().toISOString(), meta });
+  publish({
+    room: ROOM,
+    kind,
+    from,
+    text,
+    ts: new Date().toISOString(),
+    meta: kind === "computer" ? { stream: streamUrl(String(meta.agent ?? from)), backend: BACKEND, ...meta } : meta,
+  });
+
+// The page wick drafts in: served here when local, written to the VM by boat-setup.ts when on boat.
+const COMPOSER = BACKEND === "boat" ? "file:///home/user/composer.html" : `http://localhost:${PORT}/composer`;
 
 async function act(c: Computer, body: { cmd: string; sel?: string; text?: string; label?: string }) {
   if (c.takeover.on) return { status: 423, json: { ok: false, error: `${c.takeover.by ?? "a human"} has the computer` } };
@@ -69,8 +84,11 @@ async function act(c: Computer, body: { cmd: string; sel?: string; text?: string
       r = await b.confirm(askId);
     } else {
       // Risky: ring the bell and wait for a human.
-      await say("bell", c.agent, `${c.agent} wants to ${body.cmd} "${label}". Approve?`, {
+      const title = /post/i.test(label) ? `${c.agent} wants to post the launch post` : `${c.agent} wants to ${body.cmd} "${label}"`;
+      await say("bell", c.agent, `${title}. Approve?`, {
         askId,
+        for: BELL_FOR,
+        title,
         agent: c.agent,
         action: body.cmd,
         label,
@@ -82,9 +100,47 @@ async function act(c: Computer, body: { cmd: string; sel?: string; text?: string
       c.pending.delete(askId);
       r = yes ? await b.confirm(askId) : await b.deny(askId);
       if (!yes) return { status: 200, json: { ok: false, denied: true, askId } };
+      if (r.success)
+        await say("computer", c.agent, /post/i.test(label) ? `${c.agent} posted the launch post` : `${c.agent} did it: ${label}`, {
+          agent: c.agent,
+          askId,
+          done: label,
+        });
     }
   }
   return { status: r.success ? 200 : 500, json: { ok: r.success, data: r.data, error: r.error } };
+}
+
+/** Resolve a pending bell. emit=false when the hub already logged the answer. */
+async function answer(c: Computer, askId: string, yes: boolean, by = "human", emit = true) {
+  const p = c.pending.get(askId);
+  if (!p) return false;
+  if (emit)
+    await say("approve", by, `${by} ${yes ? "approved" : "denied"}: ${p.action} "${p.label}"`, { askId, yes, agent: c.agent });
+  p.resolve(yes);
+  return true;
+}
+
+// With a hub, the room answers bells at POST /room/:room/answer; pick those answers up from its event log.
+if (HUB_URL) {
+  let since = 0;
+  setInterval(async () => {
+    if (![...computers.values()].some((c) => c.pending.size)) return;
+    try {
+      const res = await fetch(`${HUB_URL}/room/${encodeURIComponent(ROOM)}/events?since=${since}`);
+      if (!res.ok) return;
+      const body = (await res.json()) as any;
+      const events: any[] = Array.isArray(body) ? body : body.events ?? body.data?.events ?? [];
+      for (const e of events) {
+        if (typeof e.seq === "number") since = Math.max(since, e.seq);
+        const askId = e.meta?.askId;
+        if (!askId || typeof e.meta?.yes !== "boolean") continue;
+        for (const c of computers.values()) if (c.pending.has(askId)) await answer(c, askId, e.meta.yes, e.meta.by ?? e.from, false);
+      }
+    } catch {
+      /* hub not up yet */
+    }
+  }, 1500);
 }
 
 const json = (body: unknown, status = 200) =>
@@ -99,11 +155,6 @@ const server = Bun.serve<WsData>({
     const parts = url.pathname.split("/").filter(Boolean); // ["computer", agent, op]
 
     if (url.pathname === "/composer") return new Response(Bun.file(join(import.meta.dir, "composer.html")));
-    if (url.pathname === "/computer/posted" && req.method === "POST") {
-      const text = await req.text();
-      await say("computer", "wick", `wick posted the launch post`, { posted: true, text });
-      return json({ ok: true });
-    }
     if (req.method === "OPTIONS") return json({}, 204);
     if (parts[0] !== "computer" || !parts[1]) return json({ error: "not found" }, 404);
 
@@ -123,7 +174,8 @@ const server = Bun.serve<WsData>({
       });
     }
     if (op === "open" && req.method === "POST") {
-      const { url: target } = (await req.json()) as { url: string };
+      const { url: asked } = (await req.json()) as { url: string };
+      const target = asked === "composer" ? COMPOSER : asked;
       const r = await c.browser.open(target);
       c.url = target;
       await say("computer", c.agent, `${c.agent} opened ${target}`, { url: target });
@@ -135,15 +187,8 @@ const server = Bun.serve<WsData>({
     }
     if (op === "answer" && req.method === "POST") {
       const { askId, yes, by } = (await req.json()) as { askId: string; yes: boolean; by?: string };
-      const p = c.pending.get(askId);
-      if (!p) return json({ ok: false, error: "no such ask" }, 404);
-      await say("approve", by ?? "human", `${by ?? "A human"} ${yes ? "approved" : "denied"}: ${p.action} "${p.label}"`, {
-        askId,
-        yes,
-        agent: c.agent,
-      });
-      p.resolve(yes);
-      return json({ ok: true });
+      const ok = await answer(c, askId, yes, by, true);
+      return ok ? json({ ok: true }) : json({ ok: false, error: "no such ask" }, 404);
     }
     return json({ error: "not found" }, 404);
   },
@@ -151,9 +196,7 @@ const server = Bun.serve<WsData>({
   websocket: {
     async open(ws) {
       const c = computer(ws.data.agent);
-      const status = await c.browser.streamStatus();
-      const port = status.data?.port ?? c.browser.streamPort;
-      const upstream = new WebSocket(`ws://127.0.0.1:${port}`);
+      const upstream = new WebSocket(await c.browser.streamUrl());
       ws.data.upstream = upstream;
       upstream.onmessage = (e) => ws.send(typeof e.data === "string" ? e.data : new Uint8Array(e.data as ArrayBuffer));
       upstream.onclose = () => ws.close(1011, "browser stream closed");

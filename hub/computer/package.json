@@ -6,11 +6,14 @@
   "scripts": {
     "start": "bun --env-file=../../.env run server.ts",
     "wick": "bun --env-file=../../.env run wick.ts",
-    "approve": "bun --env-file=../../.env run approve.ts"
+    "approve": "bun --env-file=../../.env run approve.ts",
+    "boat-setup": "bun --env-file=../../.env run boat-setup.ts",
+    "start:boat": "COMPUTER_BACKEND=boat bun --env-file=../../.env run server.ts"
   },
   "dependencies": {
     "@agent-relay/sdk": "15.0.1",
     "@anthropic-ai/sdk": "^1.3.0",
+    "@superserve/sdk": "0.11.5",
     "agent-browser": "0.41.0",
     "zod": "^4.6.7"
   },

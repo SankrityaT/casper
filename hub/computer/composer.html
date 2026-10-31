@@ -32,7 +32,6 @@
   draft.addEventListener("input", () => (count.textContent = `${draft.value.length} / 280`));
   document.getElementById("post").addEventListener("click", () => {
     document.getElementById("posted").style.display = "block";
-    fetch("/computer/posted", { method: "POST", body: draft.value }).catch(() => {});
   });
 </script>
 </body>
