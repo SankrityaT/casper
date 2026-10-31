@@ -121,7 +121,7 @@ The casper tools let you read the room, see and claim tasks, post to people, and
   pushText(vm, "/home/user/.casper-task", { "prompt.txt": prompt })
   const tools = "mcp__casper__read_room,mcp__casper__post,mcp__casper__claim,mcp__casper__tasks,mcp__casper__ring_bell,mcp__casper__check_bell,Read,Edit,Write,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git log:*),Bash(sleep:*)"
   // run it in a terminal on the VM's desktop so people can watch it work; headless if there's no desktop terminal
-  pushText(vm, "/home/user/.casper-task", { "prompt.txt": prompt, "show.py": readFileSync(resolve(REPO, "hub/hooks/show.py"), "utf8"), "run.sh": `#!/bin/bash\ncd ~/casper\nexport ANTHROPIC_API_KEY=$(cat ~/.casper-keys/anthropic)\necho "${i.name}: working on its own computer"\nclaude -p "$(cat ~/.casper-task/prompt.txt)" --verbose --output-format stream-json --max-turns 60 --allowedTools '${tools}' 2>>~/agent.err | tee -a ~/agent.jsonl | python3 ~/.casper-task/show.py | tee -a ~/agent.log\nexec bash\n` })
+  pushText(vm, "/home/user/.casper-task", { "prompt.txt": prompt, "show.py": readFileSync(resolve(REPO, "hub/hooks/show.py"), "utf8"), "run.sh": `#!/bin/bash\ncd ~/casper\nexport ANTHROPIC_API_KEY=$(cat ~/.casper-keys/anthropic)\necho "${i.name}: working on its own computer"\nclaude -p "$(cat ~/.casper-task/prompt.txt)" --verbose --output-format stream-json --max-turns 60 --dangerously-skip-permissions 2>>~/agent.err | tee -a ~/agent.jsonl | python3 ~/.casper-task/show.py | tee -a ~/agent.log\nexec bash\n` })
   const term = boatExec(vm, `chmod +x ~/.casper-task/run.sh; export DISPLAY=:0; if command -v gnome-terminal >/dev/null; then (setsid gnome-terminal --geometry=160x45 -- bash -lc ~/.casper-task/run.sh >/dev/null 2>&1 &); echo desktop; elif command -v xterm >/dev/null; then (setsid xterm -fa Monospace -fs 11 -geometry 160x45 -e bash -lc ~/.casper-task/run.sh >/dev/null 2>&1 &); echo desktop; else echo none; fi`).trim()
   if (term !== "desktop") boat(["exec", vm, "--detach", `cd ~/casper && ANTHROPIC_API_KEY=$(cat ~/.casper-keys/anthropic) claude -p "$(cat ~/.casper-task/prompt.txt)" --max-turns 60 --allowedTools '${tools}' > ~/agent.log 2>&1`])
   let desktopUrl: string | undefined
@@ -139,7 +139,7 @@ export function deliver(where: { vm?: string; dir?: string }, from: string, text
   const msg = `${from} in the room: ${text}${steer ? "\n(${from} marked this as a steer.)" : ""}`
   if (where.vm) {
     pushText(where.vm, "/home/user/.casper-task", { "reply.txt": msg })
-    boat(["exec", where.vm, "--detach", `cd ~/casper && ANTHROPIC_API_KEY=$(cat ~/.casper-keys/anthropic) claude -p --continue "$(cat ~/.casper-task/reply.txt)" --max-turns 30 --allowedTools '${TOOLS_ALL}' >> ~/agent.log 2>&1`])
+    boat(["exec", where.vm, "--detach", `cd ~/casper && ANTHROPIC_API_KEY=$(cat ~/.casper-keys/anthropic) claude -p --continue "$(cat ~/.casper-task/reply.txt)" --max-turns 30 --dangerously-skip-permissions >> ~/agent.log 2>&1`])
     return true
   }
   if (where.dir && existsSync(where.dir)) {
