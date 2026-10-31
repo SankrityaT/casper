@@ -6,7 +6,7 @@ import { actors } from "./generated/index.js"
 import type { RoomEvent } from "./src/actors.ts"
 import { answerFromRoom, meetingToTasks, triage, usage } from "./src/ai.ts"
 import { seal } from "./src/seal.ts"
-import { summon, stop, status } from "./src/summon.ts"
+import { summon, stop, status, summonOnBoat, boatAgents } from "./src/summon.ts"
 
 /* The Casper hub: stateless. Every write goes to the room's Terse actor (the source of truth, in order), then fans
    out to the browsers watching that room. Kill this process and restart it: the actor still has the log, the claims,
@@ -188,7 +188,16 @@ app.post("/room/:room/summon", async (c) => {
   const by = typeof b.by === "string" ? b.by : "someone"
   await listed(r)
   Bun.spawnSync(["git", "fetch", "-q", "origin", "main"], { cwd: new URL("..", import.meta.url).pathname })
-  const res = summon({ room: r, name, task: str(b.task, "task", 2000), by, hub: `http://127.0.0.1:${process.env.PORT ?? 8790}`, approver: typeof b.approver === "string" ? b.approver : by })
+  const task = str(b.task, "task", 2000), approver = typeof b.approver === "string" ? b.approver : by
+  if (b.where === "boat") {
+    const say = async (text: string, meta?: Record<string, unknown>) => { const ev = await room(r).append({ room: r, kind: "computer", from: name, text, ts: Date.now(), meta: { agent: name, ...(meta ?? {}) } }); fanout(r, ev) }
+    const hello = await room(r).append({ room: r, kind: "msg", from: "casper", text: `${by} summoned ${name} onto its own boat.dev computer. It will claim a task, post progress, and ring the bell before it pushes.`, ts: Date.now(), meta: { summoned: name, triage: { act: "show", why: "summon" } } })
+    fanout(r, hello)
+    summonOnBoat({ room: r, name, task, by, approver, hub: "", publicHub: process.env.HUB_PUBLIC_URL ?? "" }, say)
+      .catch((e) => say(`Couldn't start ${name}'s computer: ${(e as Error).message}`))
+    return c.json({ ok: true, where: "boat" })
+  }
+  const res = summon({ room: r, name, task, by, hub: `http://127.0.0.1:${process.env.PORT ?? 8790}`, approver })
   const ev = await room(r).append({ room: r, kind: "msg", from: "casper", text: `${by} summoned ${name}. It's a Claude Code agent on its own branch (${res.branch}); it will claim a task, post progress, and ring the bell before it pushes.`, ts: Date.now(), meta: { summoned: name, branch: res.branch, triage: { act: "show", why: "summon" } } })
   fanout(r, ev)
   return c.json({ ok: true, ...res })
@@ -199,7 +208,7 @@ app.post("/room/:room/summon/:name/stop", async (c) => {
   if (ok) { const ev = await room(r).append({ room: r, kind: "msg", from: "casper", text: `Stopped ${n}.`, ts: Date.now(), meta: { triage: { act: "show", why: "stop" } } }); fanout(r, ev) }
   return c.json({ ok })
 })
-app.get("/room/:room/agents", (c) => c.json(status(c.req.param("room"))))
+app.get("/room/:room/agents", (c) => c.json([...status(c.req.param("room")), ...boatAgents(c.req.param("room")).map((b) => ({ name: b.name, running: true, exit: null, started: b.started, dir: `boat ${b.vm}` }))]))
 
 /* the whole wing at a glance, computed from every room's log: people, agents, bells, library, usage */
 let wingCache: { at: number; body: unknown } | null = null
@@ -211,6 +220,7 @@ app.get("/wing", async (c) => {
   const bells: { room: string; askId: string; from: string; title: string; for: string; files: string[]; ts: number; seq: number; status: string; decidedBy: string | null; decidedAt: number | null }[] = []
   const library: { kind: "transcript" | "tasks" | "decision" | "branch" | "answer"; room: string; title: string; detail: string; by: string; ts: number; seq: number }[] = []
   const ts = (v: unknown) => (typeof v === "number" ? v : Date.parse(String(v)) || 0)
+  const computers = new Map<string, { agent: string; room: string; vm: string | null; backend: string | null; stream: string | null; desktopUrl: string | null; last: string; ts: number }>()
   for (const r of rooms) {
     const evs = await room(r.slug).since(0, 2000)
     const asks = new Map<string, (typeof bells)[number]>()
@@ -245,6 +255,7 @@ app.get("/wing", async (c) => {
       if (typeof e.meta?.transcript === "string") library.push({ kind: "transcript", room: r.slug, title: `Call shared by ${e.from}`, detail: String(e.meta.transcript), by: e.from, ts: t, seq: e.seq ?? 0 })
       if (Array.isArray(e.meta?.tasks)) library.push({ kind: "tasks", room: r.slug, title: `${(e.meta!.tasks as unknown[]).length} tasks from a call`, detail: (e.meta!.tasks as { title: string }[]).map((x) => x.title).join(" · "), by: e.from, ts: t, seq: e.seq ?? 0 })
       if (typeof e.meta?.branch === "string") library.push({ kind: "branch", room: r.slug, title: `Branch ${e.meta.branch}`, detail: e.text, by: e.from, ts: t, seq: e.seq ?? 0 })
+      if (e.kind === "computer" && (e.meta?.vm || e.meta?.stream || e.meta?.desktopUrl)) computers.set(String(e.meta?.agent ?? e.from), { agent: String(e.meta?.agent ?? e.from), room: r.slug, vm: (e.meta?.vm as string) ?? null, backend: (e.meta?.backend as string) ?? null, stream: (e.meta?.stream as string) ?? null, desktopUrl: (e.meta?.desktopUrl as string) ?? null, last: e.text, ts: t })
       if (e.from === "casper" && e.meta?.replyTo) library.push({ kind: "answer", room: r.slug, title: `Casper answered ${e.meta.to ?? "someone"}`, detail: e.text, by: "casper", ts: t, seq: e.seq ?? 0 })
     }
   }
@@ -254,6 +265,7 @@ app.get("/wing", async (c) => {
     people: [...people.values()].map((p) => ({ ...p, rooms: [...p.rooms] })).sort((a, b) => b.last - a.last),
     agents: [...agents.values()].map((a) => ({ ...a, rooms: [...a.rooms], working: working.some((w) => w.name === a.name) })).sort((a, b) => b.last - a.last),
     bells: bells.sort((a, b) => b.ts - a.ts),
+    computers: [...computers.values()].sort((a, b) => b.ts - a.ts),
     library: library.sort((a, b) => b.ts - a.ts),
     usage: { ai: usage, totals: { agentMessages: [...agents.values()].reduce((n, a) => n + a.total, 0), reached: [...agents.values()].reduce((n, a) => n + a.reached, 0), quiet: [...agents.values()].reduce((n, a) => n + a.quiet, 0), relay: [...agents.values()].reduce((n, a) => n + a.relay, 0) } },
   }

@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Agent from "@/components/Agent";
-import { Bubble } from "@/components/ws/Chat";
+import { Bubble, Composer, type Mentionable } from "@/components/ws/Chat";
 import { P, Ic } from "@/components/ws/data";
 import type { Id } from "@/components/ws/data";
-import { HUB, me, answer, derive, hookSetup, hush, liveMode, mcpCommand, post, shareCall, useLive, type LiveEv } from "@/lib/live";
+import { HUB, me, kindFor, answer, derive, hookSetup, hush, liveMode, mcpCommand, post, shareCall, useLive, type LiveEv } from "@/lib/live";
 
 /* A live room: what the hub (or the Relay mirror) says happened, in seq order.
    Agents argue on Relay; only what needs a person reaches the room. Hush holds an agent's lines without stopping its work. */
@@ -21,6 +21,7 @@ const AGENTS_HERE = ["jack", "batty", "wick"] as const;
 function Face({ who, size = 22 }: { who: string; size?: number }) {
   const id = idOf(who);
   if (id && P[id].kind) return <span className="lv-face" style={{ width: size, height: size }}><Agent kind={P[id].kind!} crop="head" still className="size-full" /></span>;
+  if (!id && !["sankritya", "kinjal", "you"].includes(who.toLowerCase())) return <span className="lv-face" style={{ width: size, height: size }}><Agent kind={kindFor(who.toLowerCase().split("#")[0]) as never} crop="head" still className="size-full" /></span>;
   const c = id ? P[id].color : "#6f8fc7";
   return <span className="lv-face human" style={{ width: size, height: size, background: c }}>{nameOf(who)[0]?.toUpperCase()}</span>;
 }
@@ -110,6 +111,23 @@ function Computer({ stream, agent }: { stream: string; agent: string }) {
   );
 }
 
+/* A boat.dev VM's full desktop, embedded (view-only unless the agent hands it over). */
+function Desktop({ url, agent, vm }: { url: string; agent: string; vm: string }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="lv-pc">
+      <div className="lv-pc-h">
+        <Face who={agent} size={18} /><b>{nameOf(agent)}’s computer</b>
+        <span className="lv-st live"><i />Live</span>{vm && <small className="lv-pc-url">boat {vm}</small>}
+        <span className="lv-grow" />
+        <a className="pill" href={url} target="_blank" rel="noopener noreferrer">Open full screen ↗</a>
+        <button className="pill" onClick={() => setOpen(!open)}>{open ? "Hide" : "Show"}</button>
+      </div>
+      {open && <div className="lv-pc-screen"><iframe src={url} title={`${nameOf(agent)}’s computer`} allow="clipboard-read; clipboard-write; fullscreen" style={{ width: "100%", height: "100%", border: 0 }} /></div>}
+    </div>
+  );
+}
+
 export default function LiveRoom({ room }: { room: string }) {
   const s = useLive(room);
   const d = useMemo(() => derive(s.evs), [s.evs]);
@@ -130,7 +148,7 @@ export default function LiveRoom({ room }: { room: string }) {
     return () => el.removeEventListener("scroll", on);
   }, []);
 
-  const mention = draft.match(/@(\w+)/)?.[1]?.toLowerCase();
+  const mention = draft.match(/@([\w.-]+)/)?.[1]?.toLowerCase();
   const send = () => {
     const t = draft.trim();
     if (!t) return;
@@ -156,6 +174,11 @@ export default function LiveRoom({ room }: { room: string }) {
     const seen = [...new Set(s.evs.map((e) => e.from.toLowerCase().split("#")[0]).filter((f) => !["sankritya", "kinjal", "you", "casper", "stretch"].includes(f)))];
     return seen.length ? seen.slice(0, 5) : s.status === "sim" ? [...AGENTS_HERE] : [];
   })();
+  const mentionable: Mentionable[] = [
+    ...here.map((n) => ({ handle: n, name: nameOf(n), sub: "agent in this room", face: <Agent kind={kindFor(n) as never} crop="head" className="size-full" /> })),
+    { handle: "casper", name: "Casper", sub: "host · answers from this room's history", face: <Agent kind="casper" crop="head" className="size-full" /> },
+    ...["sankritya", "kinjal"].filter((h) => h !== me()).map((h) => ({ handle: h, name: nameOf(h), sub: "person", color: P[h as Id]?.color, face: nameOf(h)[0] })),
+  ];
   const sendCall = async () => {
     setCallBusy(true); setCallErr("");
     try { await shareCall(room, call, me()); setCall(""); setPanel(null); }
@@ -244,8 +267,12 @@ export default function LiveRoom({ room }: { room: string }) {
       )}
 
       {(() => {
-        const pc = [...s.evs].reverse().find((e) => e.kind === "computer" && typeof e.meta?.stream === "string");
-        return pc ? <Computer stream={String(pc.meta!.stream)} agent={String(pc.meta?.agent ?? pc.from)} /> : null;
+        // one screen per agent: the latest stream (agent-browser frames) or boat desktop it announced
+        const byAgent = new Map<string, LiveEv>();
+        for (const e of s.evs) if (e.kind === "computer" && (typeof e.meta?.stream === "string" || typeof e.meta?.desktopUrl === "string")) byAgent.set(String(e.meta?.agent ?? e.from), e);
+        return [...byAgent.entries()].map(([agent, e]) => typeof e.meta?.stream === "string"
+          ? <Computer key={agent} stream={String(e.meta!.stream)} agent={agent} />
+          : <Desktop key={agent} url={String(e.meta!.desktopUrl)} agent={agent} vm={String(e.meta?.vm ?? "")} />);
       })()}
 
       {d.visible.length === 0 && <div className="lv-empty">Waiting for the first event{liveMode() === "file" ? " from the Relay mirror" : ""}…</div>}
@@ -313,15 +340,7 @@ export default function LiveRoom({ room }: { room: string }) {
         )}
       </div>
 
-      <form className="lv-compose" onSubmit={(e) => { e.preventDefault(); send(); }}>
-        <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder={`Message #${room}. @jack, @batty or @wick to ask an agent`} aria-label="Message" />
-        {mention && (
-          <label className={`lv-steer ${steer ? "on" : ""}`} title="Steer lands on the agent's very next step. Otherwise it waits until the agent finishes what it's doing.">
-            <input type="checkbox" checked={steer} onChange={(e) => setSteer(e.target.checked)} />Steer now
-          </label>
-        )}
-        <button className="pill white" type="submit" disabled={!draft.trim()}>Send</button>
-      </form>
+
     </div>
   );
 }
@@ -399,5 +418,30 @@ export function LiveCanvas({ room }: { room: string }) {
       </div>
       {last && <div className="lv-cv-say">{nameOf(last.from)} → {nameOf(String(last.meta?.to ?? "room"))}: {last.text}</div>}
     </div>
+  );
+}
+
+/* The composer for a live room, in the same slot as every room's composer: @ lists this room's agents, Casper and people. */
+export function LiveComposer({ room }: { room: string }) {
+  const s = useLive(room);
+  const [draft, setDraft] = useState("");
+  const [steer, setSteer] = useState(false);
+  const here = [...new Set(s.evs.map((e) => e.from.toLowerCase().split("#")[0]).filter((f) => !["sankritya", "kinjal", "you", "casper", "stretch"].includes(f)))];
+  const mentionable: Mentionable[] = [
+    ...here.map((n) => ({ handle: n, name: nameOf(n), sub: "agent in this room", face: <Agent kind={kindFor(n) as never} crop="head" className="size-full" /> })),
+    { handle: "casper", name: "Casper", sub: "host · answers from this room's history", face: <Agent kind="casper" crop="head" className="size-full" /> },
+    ...["sankritya", "kinjal"].filter((h) => h !== me()).map((h) => ({ handle: h, name: nameOf(h), sub: "person", color: P[h as Id]?.color, face: nameOf(h)[0] })),
+  ];
+  const mention = draft.match(/@([\w.-]+)/)?.[1]?.toLowerCase();
+  return (
+    <>
+      {mention && mention !== "casper" && here.includes(mention) && (
+        <label className={`lv-steer ${steer ? "on" : ""}`} title="Steer lands on the agent's very next step. Otherwise it waits until the agent finishes what it's doing.">
+          <input type="checkbox" checked={steer} onChange={(e) => setSteer(e.target.checked)} />Steer @{mention} now (interrupt its current step)
+        </label>
+      )}
+      <Composer value={draft} set={setDraft} noAttach people={mentionable} placeholder={`Message #${room}. Type @ to ask ${here.length ? "an agent or Casper" : "Casper"}`}
+        onSend={(t) => { const to = t.match(/@([\w.-]+)/)?.[1]?.toLowerCase(); post(room, me(), t.trim(), to ? { to, mode: steer ? "steer" : "wait" } : undefined); setSteer(false); }} />
+    </>
   );
 }

@@ -843,3 +843,7 @@
 .ws .lv-worker i{width:7px;height:7px;border-radius:50%;background:var(--pumpkin);animation:ws-pulse 1.4s ease-in-out infinite}
 @keyframes ws-pulse{50%{opacity:.35}}
 .ws .lv-sys>span svg{display:inline-block;vertical-align:-2px;margin-right:4px}
+/* live room: the composer sits at the bottom of the room, like every other room */
+.ws .chat .thread:has(> .lv){min-height:100%;display:flex;flex-direction:column}
+.ws .lv{flex:1}
+.ws .compose .lv-steer{display:flex;max-width:720px;margin:0 auto 8px;padding:0 4px}
