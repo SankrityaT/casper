@@ -11,7 +11,7 @@ import { type Action, type Think } from "./brain";
 import { thinkClaude } from "./brain-claude";
 import { thinkOpenAI } from "./brain-openai";
 import { DM_ROOM, loadAgents, loadObserver, recordConv, requireKey, roomChannel } from "./state";
-import { TASKS, claim, loadClaims, postToHub, taskById } from "./tasks";
+import { TASKS, claim, loadClaims, postToHub, refreshTasks, taskById } from "./tasks";
 
 const BASE_URL = (process.env.RELAY_BASE_URL ?? "https://cast.agentrelay.com").replace(/\/$/, "");
 const ROOM = DM_ROOM;
@@ -198,7 +198,9 @@ for (;;) {
 }
 console.log(`agents up (jack=Claude, batty=OpenAI), reading events after seq ${cursor}`);
 
-await postToHub({
+const fromHub = await refreshTasks(ROOM);
+console.log(`cards (${fromHub ? "from hub meeting" : "built-in"}): ${TASKS.map((t) => `${t.id} ${t.title}`).join(" | ")}`);
+if (!fromHub) await postToHub({
   room: ROOM,
   kind: "msg",
   from: "casper",

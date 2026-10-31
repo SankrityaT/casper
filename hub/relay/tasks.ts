@@ -20,6 +20,27 @@ export const TASKS: TaskCard[] = [
 
 export const taskById = (id: string) => TASKS.find((t) => t.id === id);
 
+/**
+ * Cards from the hub's meeting extraction: the latest event with meta.tasks [{id,title}] (the hub
+ * accumulates them). Replaces TASKS in place; falls back to the built-in autopay cards.
+ * Returns true when the cards came from the hub (casper already announced them there).
+ */
+export async function refreshTasks(room = DM_ROOM): Promise<boolean> {
+  if (!HUB_URL) return false;
+  try {
+    const res = await fetch(`${HUB_URL}/room/${encodeURIComponent(room)}/events?since=0`);
+    if (!res.ok) return false;
+    const events = (await res.json()) as { meta?: { tasks?: { id?: string; title: string; brief?: string }[] } }[];
+    const latest = [...events].reverse().find((e) => Array.isArray(e.meta?.tasks) && e.meta!.tasks!.length);
+    if (!latest) return false;
+    const cards = latest.meta!.tasks!.map((t, i) => ({ id: t.id ?? `t${i + 1}`, title: t.title, brief: t.brief ?? t.title }));
+    TASKS.splice(0, TASKS.length, ...cards);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 type Claims = Record<string, string>; // taskId -> agent
 export const loadClaims = (): Claims => readJson<Claims>("claims.json") ?? {};
 
@@ -36,6 +57,10 @@ export async function claim(taskId: string, agent: string, room = DM_ROOM): Prom
       });
       if (res.status !== 200 && res.status !== 409) throw new Error(`HTTP ${res.status}`);
       result = (await res.json()) as { ok: boolean; owner: string };
+      // Keep the local view in sync with the hub's decision (agents read claims locally).
+      const claims = loadClaims();
+      claims[taskId] = result.owner;
+      writeJson("claims.json", claims);
     } catch (err) {
       console.warn("hub claim failed, using local claims:", (err as Error).message);
       result = localClaim(taskId, agent);

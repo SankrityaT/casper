@@ -8,7 +8,8 @@
     "mirror": "./run-mirror.sh",
     "dm-test": "bun --env-file=../../.env run dm-test.ts",
     "agents": "bun --env-file=../../.env run agents.ts",
-    "steer": "bun --env-file=../../.env run steer.ts"
+    "steer": "bun --env-file=../../.env run steer.ts",
+    "bridge": "bun --env-file=../../.env run bridge.ts"
   },
   "dependencies": {
     "@agent-relay/sdk": "15.0.1",
