@@ -1,0 +1,39 @@
+<!-- created by kinjal -->
+<!-- Stand-in launch composer for the demo: wick drafts the launch post here. Posting is fake (local only). -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Compose launch post</title>
+<style>
+  body { margin: 0; font: 16px/1.45 -apple-system, system-ui, sans-serif; background: #f6f5f2; color: #1d1d1b; display: grid; place-items: center; min-height: 100vh; }
+  main { width: min(560px, 92vw); background: #fff; border: 1px solid #e3e1db; border-radius: 14px; padding: 20px; }
+  h1 { font-size: 15px; margin: 0 0 12px; color: #6b6a64; font-weight: 600; }
+  textarea { width: 100%; box-sizing: border-box; min-height: 150px; font: inherit; border: 1px solid #dcdad3; border-radius: 10px; padding: 12px; resize: vertical; }
+  footer { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; }
+  #count { color: #8a8880; font-size: 13px; }
+  button { font: inherit; font-weight: 600; background: #1d1d1b; color: #fff; border: 0; border-radius: 999px; padding: 9px 20px; cursor: pointer; }
+  #posted { display: none; margin-top: 14px; padding: 12px; border-radius: 10px; background: #eaf6ec; color: #1f6b33; }
+</style>
+</head>
+<body>
+<main>
+  <h1>New post · @casper</h1>
+  <textarea id="draft" aria-label="Post text" placeholder="What's launching?"></textarea>
+  <footer>
+    <span id="count">0 / 280</span>
+    <button id="post" type="button">Post</button>
+  </footer>
+  <div id="posted" role="status">Posted.</div>
+</main>
+<script>
+  const draft = document.getElementById("draft");
+  const count = document.getElementById("count");
+  draft.addEventListener("input", () => (count.textContent = `${draft.value.length} / 280`));
+  document.getElementById("post").addEventListener("click", () => {
+    document.getElementById("posted").style.display = "block";
+    fetch("/computer/posted", { method: "POST", body: draft.value }).catch(() => {});
+  });
+</script>
+</body>
+</html>

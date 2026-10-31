@@ -1,0 +1,21 @@
+{
+  "//": "created by kinjal",
+  "name": "casper-computer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun --env-file=../../.env run server.ts",
+    "wick": "bun --env-file=../../.env run wick.ts",
+    "approve": "bun --env-file=../../.env run approve.ts"
+  },
+  "dependencies": {
+    "@agent-relay/sdk": "15.0.1",
+    "@anthropic-ai/sdk": "^1.3.0",
+    "agent-browser": "0.41.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "typescript": "^7.0.2"
+  }
+}
