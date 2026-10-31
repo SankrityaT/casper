@@ -138,6 +138,7 @@ export default function LiveRoom({ room }: { room: string }) {
     setDraft(""); setSteer(false);
   };
   const digestAt = new Map(d.digests.map((g) => [g.at, g]));
+  const titleOf = (task: string) => d.tasks.find((t) => t.id === task)?.title ?? task;
   const [panel, setPanel] = useState<null | "call" | "connect">(null);
   const [workers, setWorkers] = useState<{ name: string; running: boolean }[]>([]);
   useEffect(() => {
@@ -222,7 +223,7 @@ export default function LiveRoom({ room }: { room: string }) {
       {d.tasks.length > 0 && (
         <div className="lv-tasks">
           {d.tasks.map((t) => {
-            const owner = d.claims[t.title];
+            const owner = (d.claims[t.title] ?? d.claims[t.id]);
             return (
               <div key={t.id} className={`lv-task ${owner ? "owned" : ""}`} title={t.why}>
                 <span className="lv-task-k">{owner ? "Claimed" : "Open"}</span>
@@ -236,7 +237,7 @@ export default function LiveRoom({ room }: { room: string }) {
 
       {Object.keys(d.claims).filter((t) => !d.tasks.some((x) => x.title === t)).length > 0 && (
         <div className="lv-claims">
-          {Object.entries(d.claims).filter(([t]) => !d.tasks.some((x) => x.title === t)).map(([task, owner]) => (
+          {Object.entries(d.claims).filter(([t]) => !d.tasks.some((x) => x.title === t || x.id === t)).map(([task, owner]) => (
             <span key={task} className="lv-claim"><Face who={owner} size={16} /><b>{task}</b><small>{nameOf(owner)}</small></span>
           ))}
         </div>
@@ -256,8 +257,8 @@ export default function LiveRoom({ room }: { room: string }) {
           if (e.kind === "claim") {
             const task = String(e.meta?.task ?? e.text);
             return e.meta?.ok === false
-              ? <Sys who={e.from} tone="warn">{nameOf(e.from)} reached for <b>{task}</b>. {nameOf(String(e.meta?.owner ?? "someone"))} already has that one.</Sys>
-              : <Sys who={e.from} tone="ok">{nameOf(e.from)} claimed <b>{task}</b></Sys>;
+              ? <Sys who={e.from} tone="warn">{nameOf(e.from)} reached for <b>{titleOf(task)}</b>. {nameOf(String(e.meta?.owner ?? "someone"))} already has that one.</Sys>
+              : <Sys who={e.from} tone="ok">{nameOf(e.from)} claimed <b>{titleOf(task)}</b></Sys>;
           }
           if (e.kind === "hush") {
             const t = nameOf(String(e.meta?.target ?? ""));
@@ -357,6 +358,7 @@ export function LiveCanvas({ room }: { room: string }) {
   const recent = d.backchannel.slice(-8);
   const last = recent[recent.length - 1];
   const tasks = d.tasks.length ? d.tasks.map((t) => t.title) : Object.keys(d.claims);
+  const ownerOf = (title: string) => d.claims[title] ?? d.claims[d.tasks.find((t) => t.title === title)?.id ?? ""];
   const CX = (i: number) => 3 + (i % 4) * 18.5, CY = (i: number) => 66 + Math.floor(i / 4) * 13;
   const open = Object.values(d.asks).filter((a) => !a.done);
   return (
@@ -368,7 +370,7 @@ export function LiveCanvas({ room }: { room: string }) {
           return <path key={i} d={`M${a.x} ${a.y - 6} Q${(a.x + b.x) / 2} ${a.y - 22 - (i % 3) * 3} ${b.x} ${b.y - 6}`} className={`w ${e === last ? "hot" : ""}`} vectorEffect="non-scaling-stroke" />;
         })}
         {tasks.map((t, i) => {
-          const owner = d.claims[t]; const a = owner ? pos.get(owner.toLowerCase()) : null;
+          const owner = ownerOf(t); const a = owner ? pos.get(owner.toLowerCase()) : null;
           return a ? <path key={t} d={`M${a.x} ${a.y + 9} L${CX(i) + 8} ${CY(i)}`} className="w own" vectorEffect="non-scaling-stroke" /> : null;
         })}
       </svg>
@@ -385,7 +387,7 @@ export function LiveCanvas({ room }: { room: string }) {
         );
       })}
       {tasks.map((t, i) => {
-        const owner = d.claims[t];
+        const owner = ownerOf(t);
         return (
           <div key={t} className={`lv-cv-card ${owner ? "owned" : ""}`} style={{ left: `${CX(i)}%`, top: `${CY(i)}%` }}>
             <small>{owner ? `${nameOf(owner)} owns it` : "Open"}</small><b>{t}</b>

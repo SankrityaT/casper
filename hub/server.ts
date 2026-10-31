@@ -58,6 +58,11 @@ const KINDS = new Set(["msg", "claim", "bell", "hush", "relay", "computer", "app
 
 app.get("/", (c) => c.json({ ok: true, service: "casper-hub", rooms: [...watchers.keys()] }))
 app.get("/hooks/push-gate.sh", async (c) => c.body(await Bun.file(new URL("./hooks/push-gate.sh", import.meta.url)).text(), 200, { "content-type": "text/x-shellscript" }))
+app.get("/knock", async (c) => {
+  const proto = c.req.header("x-forwarded-proto") ?? "http", host = c.req.header("x-forwarded-host") ?? c.req.header("host")
+  const hub = process.env.HUB_PUBLIC_URL ?? `${proto}://${host}`
+  return c.body((await Bun.file(new URL("./hooks/knock.sh", import.meta.url)).text()).replace("__HUB__", hub), 200, { "content-type": "text/x-shellscript" })
+})
 app.get("/health", (c) => c.json({ ok: true }))
 
 app.post("/room/:room/claim", async (c) => {
@@ -258,10 +263,11 @@ async function callTool(r: string, agent: string, name: string, a: Record<string
     case "tasks": {
       const sum = await R.summary()
       const evs = await R.since(0, 2000)
-      const tasks: { title: string }[] = []
+      const tasks: { title: string; id?: string }[] = []
       for (const e of evs) for (const t of (Array.isArray(e.meta?.tasks) ? (e.meta!.tasks as { title: string }[]) : [])) if (!tasks.some((x) => x.title === t.title)) tasks.push(t)
-      const rows = tasks.map((t) => `- ${t.title}: ${sum.claims[t.title] ? `owned by ${sum.claims[t.title]}` : "open"}`)
-      const extra = Object.entries(sum.claims).filter(([t]) => !tasks.some((x) => x.title === t)).map(([t, o]) => `- ${t}: owned by ${o}`)
+      const own = (t: { title: string; id?: string }) => sum.claims[t.title] ?? (t.id ? sum.claims[t.id] : undefined)
+      const rows = tasks.map((t) => `- ${t.title}${t.id ? ` (id ${t.id})` : ""}: ${own(t) ? `owned by ${own(t)}` : "open"}`)
+      const extra = Object.entries(sum.claims).filter(([t]) => !tasks.some((x) => x.title === t || x.id === t)).map(([t, o]) => `- ${t}: owned by ${o}`)
       return text([...rows, ...extra].join("\n") || "No tasks yet.")
     }
     case "ring_bell": {
