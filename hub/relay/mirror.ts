@@ -68,7 +68,11 @@ async function emit(n: Normalized) {
   seen.add(n.messageId);
   const isDm = n.type === "dm.received" || n.type === "group_dm.received";
   // DM events carry no recipient; senders record conversation participants (state.ts recordConv).
-  if (isDm && !n.to) n.to = convPeer(n.conversationId, n.from);
+  // The sender writes the record right after its send returns, which can trail the event; wait briefly.
+  for (let i = 0; isDm && !n.to && i < 16; i++) {
+    n.to = convPeer(n.conversationId, n.from);
+    if (!n.to) await Bun.sleep(500);
+  }
   // casper relays humans as "Name: text"; credit the human on the room side.
   if (isDm && n.from === "casper") {
     const m = /^([A-Za-z][\w-]*):\s+([\s\S]*)$/.exec(n.text);
