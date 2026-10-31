@@ -15,7 +15,9 @@ import {
   loadCursor,
   loadObserver,
   publish,
+  readJson,
   saveCursor,
+  writeJson,
   type CasperEvent,
 } from "./state";
 
@@ -32,7 +34,7 @@ const HUMANS = new Set((process.env.CASPER_HUMANS ?? "kinjal,sankritya").split("
 
 let seq = loadCursor();
 const seen = new Set<string>();
-const counters = { total: 0, toHuman: 0 };
+const counters = readJson<{ total: number; toHuman: number }>("counters.json") ?? { total: 0, toHuman: 0 };
 
 function advance(next: number) {
   if (next > seq) {
@@ -68,6 +70,7 @@ async function emit(n: Normalized) {
   // "Reached a human": room posts (visible in the Casper room) and DMs to/from a human.
   // Agent<->agent DMs stay backstage. DM events carry no recipient, so metadata.to is best-effort.
   if (!isDm || HUMANS.has(n.from) || (n.to && HUMANS.has(n.to))) counters.toHuman++;
+  writeJson("counters.json", counters); // survives restarts, like the cursor
 
   const event: CasperEvent = {
     seq: n.seq ?? seq,
