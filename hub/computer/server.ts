@@ -181,6 +181,13 @@ const server = Bun.serve<WsData>({
       await say("computer", c.agent, `${c.agent} opened ${target}`, { url: target });
       return json({ ok: r.success, data: r.data, error: r.error }, r.success ? 200 : 500);
     }
+    if (op === "announce" && req.method === "POST") {
+      // Tell the room this agent's computer is live (desktop VMs have no browser "open" to trigger it).
+      const { text } = (await req.json().catch(() => ({}))) as { text?: string };
+      const desk = deskState(c.agent);
+      await say("computer", c.agent, text ?? `${c.agent}'s computer is live`, { agent: c.agent, ...(desk ? { backend: "boat-desktop", vm: desk.id } : {}) });
+      return json({ ok: true, stream: streamUrl(c.agent) });
+    }
     if (op === "act" && req.method === "POST") {
       const r = await act(c, (await req.json()) as never);
       return json(r.json, r.status);
