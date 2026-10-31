@@ -1,6 +1,7 @@
 /* OpenAI calls the hub makes: meeting → task cards, and Stretch's triage of agent messages. */
 
 const KEY = () => process.env.OPENAI_API_KEY ?? ""
+export const usage = { calls: 0, failures: 0, promptTokens: 0, completionTokens: 0, byModel: {} as Record<string, number> }
 
 async function chatJson<T>(model: string, system: string, user: string, timeoutMs: number): Promise<T | null> {
   if (!KEY()) return null
@@ -11,8 +12,10 @@ async function chatJson<T>(model: string, system: string, user: string, timeoutM
       body: JSON.stringify({ model, response_format: { type: "json_object" }, messages: [{ role: "system", content: system }, { role: "user", content: user }] }),
       signal: AbortSignal.timeout(timeoutMs),
     })
-    if (!r.ok) { console.warn("openai", r.status, (await r.text()).slice(0, 200)); return null }
-    const j = (await r.json()) as { choices?: { message?: { content?: string } }[] }
+    if (!r.ok) { usage.failures++; console.warn("openai", r.status, (await r.text()).slice(0, 200)); return null }
+    const j = (await r.json()) as { choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } }
+    usage.calls++; usage.byModel[model] = (usage.byModel[model] ?? 0) + 1
+    usage.promptTokens += j.usage?.prompt_tokens ?? 0; usage.completionTokens += j.usage?.completion_tokens ?? 0
     return JSON.parse(j.choices?.[0]?.message?.content ?? "null") as T
   } catch (e) { console.warn("openai", String(e).slice(0, 200)); return null }
 }

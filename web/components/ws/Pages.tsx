@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { knock } from "@/lib/agents";
-import { HUB, me } from "@/lib/live";
+import { HUB, me, useWing } from "@/lib/live";
+import { LiveAgentsPage, LiveLibraryPage, LiveUsagePage, LiveBellAnswered } from "@/components/ws/WingPages";
 import Agent from "@/components/Agent";
 import Brand, { type BrandName } from "@/components/ui/Brand";
 import Select from "@/components/ws/Select";
@@ -30,7 +31,18 @@ const Head = ({ title, sub, right }: { title: string; sub?: string; right?: Reac
 
 /* ---------- the bell ---------- */
 export function BellPage({ ask, onApprove, goRoom, live }: { ask: Ev["ask"] | null; onApprove: () => void; goRoom: (r: string) => void; live?: React.ReactNode }) {
+  const w = useWing();
   const [past, setPast] = useState(BELL_PAST);
+  if (w) return (
+    <section className="main page">
+      <Head title="The bell" sub={`${w.bells.filter((b) => b.status === "open").length} waiting`} />
+      <div className="sc"><div className="sec">
+        <p className="lead">Everything an agent is waiting on a person for, across every room, with the evidence. Answer here or in the room.</p>
+        {live}
+        <LiveBellAnswered w={w} goRoom={goRoom} />
+      </div></div>
+    </section>
+  );
   const answer = (i: number, done: string) => setPast((p) => p.map((x, k) => (k === i ? { ...x, done } : x)));
   const open = past.filter((p) => !p.done);
   return (
@@ -68,7 +80,9 @@ export function BellPage({ ask, onApprove, goRoom, live }: { ask: Ev["ask"] | nu
 }
 
 /* ---------- agents ---------- */
-export function AgentsPage({ open, speaking }: { open: (id: Id) => void; speaking?: Id }) {
+export function AgentsPage({ open, speaking, goRoom }: { open: (id: Id) => void; speaking?: Id; goRoom?: (r: string) => void }) {
+  const w = useWing();
+  if (w && goRoom) return <LiveAgentsPage w={w} goRoom={goRoom} />;
   const card = (id: Id, rights: string) => (
     <button key={id} className="acard" onClick={() => open(id)}>
       <span className="fig"><Agent kind={P[id].kind!} mood={speaking === id ? "alert" : "calm"} className="size-full" /></span>
@@ -111,7 +125,12 @@ const MEM: { t: string; sub: string; scope: Scope; reads: string; src: string[] 
   { t: "charge.ts reads autopay on every bill", sub: "Jack’s notebook · from its run at 2:06", scope: "notebook", reads: "Only Jack · Sankritya can inspect", src: ["api/autopay.ts"] },
 ];
 
-export function LibraryPage() {
+export function LibraryPage({ goRoom }: { goRoom?: (r: string) => void } = {}) {
+  const w = useWing();
+  if (w && goRoom) return <LiveLibraryPage w={w} goRoom={goRoom} />;
+  return <LibraryMock />;
+}
+function LibraryMock() {
   const [q, setQ] = useState("");
   const [ans, setAns] = useState<string | null>(null);
   const [scope, setScope] = useState<Scope | "all">("all");
@@ -180,6 +199,11 @@ export function LibraryPage() {
 
 /* ---------- usage ---------- */
 export function UsagePage() {
+  const w = useWing();
+  if (w) return <LiveUsagePage w={w} />;
+  return <UsageMock />;
+}
+function UsageMock() {
   const total = USAGE.reduce((a, u) => a + (u.cost ?? 0), 0);
   const [limit, setLimit] = useState(500);
   return (
