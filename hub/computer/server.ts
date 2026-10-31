@@ -17,7 +17,7 @@
 // Events (kind "computer" | "bell" | "approve") go to out.jsonl + the hub via ../relay/state publish().
 import { join } from "node:path";
 import { HUB_URL, publish } from "../relay/state";
-import { BACKEND, Browser } from "./browser";
+import { BACKEND, Browser, deskState } from "./browser";
 
 const PORT = Number(process.env.COMPUTER_PORT ?? 8791); // the hub owns 8790
 // How the room/web reaches this server (a tunnel URL in the demo); goes into meta.stream.
@@ -196,7 +196,9 @@ const server = Bun.serve<WsData>({
   websocket: {
     async open(ws) {
       const c = computer(ws.data.agent);
-      const upstream = new WebSocket(await c.browser.streamUrl());
+      // Coding agents (batty...) stream their whole VM desktop (desk-setup.ts); wick streams its browser.
+      const desk = deskState(c.agent)?.streamUrl;
+      const upstream = new WebSocket(desk ? desk.replace(/^http/, "ws") : await c.browser.streamUrl());
       ws.data.upstream = upstream;
       upstream.onmessage = (e) => ws.send(typeof e.data === "string" ? e.data : new Uint8Array(e.data as ArrayBuffer));
       upstream.onclose = () => ws.close(1011, "browser stream closed");

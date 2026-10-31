@@ -33,10 +33,20 @@ export const boatState = (): BoatState | undefined =>
 const sq = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
 
 /** Run a shell command on the boat VM and return stdout. */
-export async function boatExec(command: string, timeoutSeconds = 120): Promise<{ exitCode: number; stdout: string; stderr: string }> {
-  const st = boatState();
-  if (!st) throw new Error("no .state/boat.json, run `bun run boat-setup`");
-  const res = await fetch(`${BOAT_API}/sandboxes/${st.id}/commands`, {
+/** Per-agent desktop VMs (desk-setup.ts) live in .state/boat-<agent>.json. */
+export const deskState = (agent: string): BoatState | undefined => {
+  const p = join(import.meta.dir, `.state/boat-${agent}.json`);
+  return existsSync(p) ? (JSON.parse(readFileSync(p, "utf8")) as BoatState) : undefined;
+};
+
+export async function boatExec(
+  command: string,
+  timeoutSeconds = 120,
+  sandboxId?: string,
+): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  const id = sandboxId ?? boatState()?.id;
+  if (!id) throw new Error("no .state/boat.json, run `bun run boat-setup`");
+  const res = await fetch(`${BOAT_API}/sandboxes/${id}/commands`, {
     method: "POST",
     headers: { authorization: `Bearer ${process.env.BOAT_API_KEY}`, "content-type": "application/json" },
     body: JSON.stringify({ command, timeoutSeconds }),
