@@ -534,14 +534,17 @@ export function LiveComposer({ room }: { room: string }) {
   const [draft, setDraft] = useState("");
   const [steer, setSteer] = useState(false);
   const here = [...new Set(s.evs.map((e) => e.from.toLowerCase().split("#")[0]).filter((f) => !["sankritya", "kinjal", "you", "casper", "stretch"].includes(f)))];
+  const [menu, setMenu] = useState(false);
+  const [att, setAtt] = useState<typeof ZOOM_CALL | null>(null);
   const mentionable: Mentionable[] = [
+    { handle: "zoom", name: "Zoom meeting · Hush launch sync", sub: "Oct 31 · 2:40 PM · Casper transcribes it", color: "#2d8cff", face: "Z" },
     ...here.map((n) => ({ handle: n, name: nameOf(n), sub: "agent in this room", face: <Agent kind={kindFor(n) as never} crop="head" className="size-full" /> })),
     { handle: "casper", name: "Casper", sub: "host · answers from this room's history", face: <Agent kind="casper" crop="head" className="size-full" /> },
     ...["sankritya", "kinjal"].filter((h) => h !== me()).map((h) => ({ handle: h, name: nameOf(h), sub: "person", color: P[h as Id]?.color, face: nameOf(h)[0] })),
   ];
+  // picking @zoom attaches the meeting instead of addressing someone
+  useEffect(() => { if (/@zoom\b/i.test(draft)) { setAtt(ZOOM_CALL); setDraft(draft.replace(/@zoom\b\s*/i, "")); } }, [draft]);
   const mention = draft.match(/@([\w.-]+)/)?.[1]?.toLowerCase();
-  const [menu, setMenu] = useState(false);
-  const [att, setAtt] = useState<typeof ZOOM_CALL | null>(null);
   return (
     <>
       {menu && (

@@ -46,10 +46,10 @@ async function roomAgents(r: string) {
   const names = [...new Set(evs.map((e) => e.from.toLowerCase().split("#")[0]).filter((n) => !HUMANS.has(n) && n !== "casper" && n !== "stretch"))]
   return { evs, vms, names }
 }
-async function autoSummon(r: string, task: string, by: string, title?: string) {
+async function autoSummon(r: string, task: string, by: string, title?: string, who?: string) {
   const { names } = await roomAgents(r)
   const taken = reserved.get(r) ?? new Set<string>(); reserved.set(r, taken)
-  const name = NAMES.find((n) => !names.includes(n) && !taken.has(n)) ?? `agent${Date.now().toString(36).slice(-3)}`
+  const name = who && !taken.has(who) ? who : NAMES.find((n) => !names.includes(n) && !taken.has(n)) ?? `agent${Date.now().toString(36).slice(-3)}`
   taken.add(name)
   const say = async (text: string, meta?: Record<string, unknown>) => { const ev = await room(r).append({ room: r, kind: "computer", from: name, text, ts: Date.now(), meta: { agent: name, ...(meta ?? {}) } }); fanout(r, ev) }
   const hello = await room(r).append({ room: r, kind: "msg", from: "casper", text: `@${name} you're on "${title ?? task}". Spinning up your computer now.`, ts: Date.now(), meta: { to: name, triage: { act: "show", why: "dispatch" } } })
@@ -215,9 +215,12 @@ app.post("/room/:room/meeting", async (c) => {
       if (p.agent === "person") continue
       const task = tasks.find((t) => t.title === p.task)?.title ?? p.task
       const n = p.agent?.toLowerCase()
-      if (n && names.includes(n) && deliver({ vm: vms.get(n), dir: localDir(r, n) }, by, `New task from the call, please claim it: "${task}"`, false)) {
-        const x = await room(r).append({ room: r, kind: "msg", from: "stretch", text: `${n}, you're up for "${task}".`, ts: Date.now(), meta: { to: n, triage: { act: "show", why: "dispatch" } } }); fanout(r, x)
-      } else if (started < AUTO_MAX_NEW) { started++; void autoSummon(r, `Claim and do the task "${task}" from the call. Call summary: ${summary}`, by, task) }
+      if (n && names.includes(n) && vms.has(n) && deliver({ vm: vms.get(n), dir: localDir(r, n) }, by, `New task from the call, please claim it: "${task}"`, false)) {
+        const x = await room(r).append({ room: r, kind: "msg", from: "casper", text: `@${n} you're on "${task}".`, ts: Date.now(), meta: { to: n, triage: { act: "show", why: "dispatch" } } }); fanout(r, x)
+      } else if (started < AUTO_MAX_NEW) {
+        // an agent already in the room but without a computer gets one; otherwise a new agent joins
+        started++; void autoSummon(r, `Claim and do the task "${task}" from the call. Call summary: ${summary}`, by, task, n && names.includes(n) ? n : undefined)
+      }
     }
   })().catch((e) => console.warn("assign", e))
   return c.json(out)
