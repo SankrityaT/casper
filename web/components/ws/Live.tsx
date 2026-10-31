@@ -385,13 +385,13 @@ export function LiveCanvas({ room }: { room: string }) {
   const d = useMemo(() => derive(s.evs), [s.evs]);
   const agents = [...new Set(s.evs.map((e) => e.from.toLowerCase().split("#")[0]).filter((f) => !["sankritya", "kinjal", "you", "stretch"].includes(f)))].slice(0, 6);
   // layout in percent of the canvas; the right 26% is kept for the bell
-  const AX = (i: number) => (agents.length <= 1 ? 36 : 8 + (i * 56) / (agents.length - 1));
+  const AX = (i: number) => (agents.length <= 1 ? 30 : 8 + (i * 50) / (agents.length - 1));
   const pos = new Map(agents.map((a, i) => [a, { x: AX(i), y: 34 }]));
   const recent = d.backchannel.slice(-8);
   const last = recent[recent.length - 1];
   const tasks = d.tasks.length ? d.tasks.map((t) => t.title) : Object.keys(d.claims);
   const ownerOf = (title: string) => d.claims[title] ?? d.claims[d.tasks.find((t) => t.title === title)?.id ?? ""];
-  const CX = (i: number) => 3 + (i % 4) * 18.5, CY = (i: number) => 66 + Math.floor(i / 4) * 13;
+  const CX = (i: number) => 3 + (i % 3) * 20.5, CY = (i: number) => 64 + Math.floor(i / 3) * 13;
   const open = Object.values(d.asks).filter((a) => !a.done);
   return (
     <div className="lv-cv">
@@ -428,6 +428,13 @@ export function LiveCanvas({ room }: { room: string }) {
       })}
       <div className="lv-cv-bells">
         {open.map((a) => <BellCard key={String(a.ev.meta?.askId)} ev={a.ev} room={room} />)}
+        {(() => {
+          const byAgent = new Map<string, LiveEv>();
+          for (const e of s.evs) if (e.kind === "computer" && (typeof e.meta?.stream === "string" || typeof e.meta?.desktopUrl === "string")) byAgent.set(String(e.meta?.agent ?? e.from), e);
+          return [...byAgent.entries()].map(([agent, e]) => typeof e.meta?.stream === "string"
+            ? <Computer key={agent} stream={String(e.meta!.stream)} agent={agent} />
+            : <Desktop key={agent} url={String(e.meta!.desktopUrl)} agent={agent} vm={String(e.meta?.vm ?? "")} />);
+        })()}
       </div>
       {last && <div className="lv-cv-say">{nameOf(last.from)} → {nameOf(String(last.meta?.to ?? "room"))}: {last.text}</div>}
     </div>

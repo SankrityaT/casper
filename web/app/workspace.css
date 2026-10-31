@@ -830,14 +830,14 @@
 .ws .lv-cv-agent .tag small{color:var(--violet)}
 .ws .lv-cv-agent.hushed{opacity:.45}
 .ws .lv-cv-agent.talking .tag{border-color:var(--violet)}
-.ws .lv-cv-card{position:absolute;width:17%;min-width:0;padding:10px 12px;border-radius:12px;border:1px solid var(--line-2);background:var(--card);display:flex;flex-direction:column;gap:3px}
+.ws .lv-cv-card{position:absolute;width:19%;min-width:0;padding:10px 12px;border-radius:12px;border:1px solid var(--line-2);background:var(--card);display:flex;flex-direction:column;gap:3px}
 .ws .lv-cv-card small{font-size:11px;color:var(--ink-3)}
 .ws .lv-cv-card.owned{border-color:rgba(88,196,126,.35)}
 .ws .lv-cv-card.owned small{color:var(--green)}
 .ws .lv-cv-card b{font-size:13px;color:var(--ink);overflow-wrap:anywhere}
 .ws .lv-cv-bells{position:absolute;right:16px;top:16px;width:24%;min-width:220px;display:flex;flex-direction:column;gap:8px;max-height:calc(100% - 90px);overflow:auto}
 .ws .lv-cv-bells .lv-bell{margin:0}
-.ws .lv-cv-say{position:absolute;left:20px;right:28%;bottom:18px;font-size:13px;color:var(--ink-2);background:rgba(25,25,24,.9);border:1px solid var(--line);border-radius:12px;padding:8px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ws .lv-cv-say{position:absolute;left:20px;right:37%;bottom:18px;font-size:13px;color:var(--ink-2);background:rgba(25,25,24,.9);border:1px solid var(--line);border-radius:12px;padding:8px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ws .lv-workers{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 6px}
 .ws .lv-worker{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-2);padding:4px 10px;border-radius:999px;border:1px solid rgba(245,138,51,.35);background:var(--pumpkin-wash)}
 .ws .lv-worker i{width:7px;height:7px;border-radius:50%;background:var(--pumpkin);animation:ws-pulse 1.4s ease-in-out infinite}
@@ -857,3 +857,7 @@
 .ws .lv-blank-acts b{font-size:14px}
 .ws .lv-blank-acts small{font-size:12.5px;color:var(--ink-3);line-height:1.4}
 @media (max-width:900px){.ws .lv-blank-acts{grid-template-columns:minmax(0,1fr)}}
+.ws .lv-cv-bells{width:34%;min-width:300px}
+.ws .lv-cv-bells .lv-pc{margin:0}
+.ws .lv-cv-bells .lv-pc-h .pill:not(.white){display:none}
+.ws .lv-cv-bells .lv-pc-h .pill.white{display:inline-flex}

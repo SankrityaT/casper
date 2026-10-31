@@ -135,3 +135,22 @@ Your job: ${i.task}
   return { vm, branch }
 }
 export const boatAgents = (room: string) => [...boatRunning.entries()].filter(([k]) => k.startsWith(`${room}/`)).map(([k, v]) => ({ name: k.split("/")[1], vm: v.vm, started: v.started }))
+
+/* ---------- deliver a person's @ to an agent that isn't listening right now ----------
+   A summoned agent runs `claude -p` and exits when its job is done. When someone @s it, resume that same
+   Claude Code session (--continue) on its computer with the message, so it answers in the room. */
+const TOOLS_ALL = "mcp__casper__read_room,mcp__casper__post,mcp__casper__claim,mcp__casper__tasks,mcp__casper__ring_bell,mcp__casper__check_bell,Read,Edit,Write,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git log:*),Bash(sleep:*)"
+export function deliver(where: { vm?: string; dir?: string }, from: string, text: string, steer: boolean): boolean {
+  const msg = `${from} (a person in the room) says to you: "${text}"${steer ? " This is a steer: change what you're doing now." : ""} Answer them in the room with the post tool (to: "${from}"), and do what they ask if it's within your job.`
+  if (where.vm) {
+    pushText(where.vm, "/home/user/.casper-task", { "reply.txt": msg })
+    boat(["exec", where.vm, "--detach", `cd ~/casper && ANTHROPIC_API_KEY=$(cat ~/.casper-keys/anthropic) claude -p --continue "$(cat ~/.casper-task/reply.txt)" --max-turns 30 --allowedTools '${TOOLS_ALL}' >> ~/agent.log 2>&1`])
+    return true
+  }
+  if (where.dir && existsSync(where.dir)) {
+    spawn("claude", ["-p", "--continue", msg, "--mcp-config", join(where.dir, ".casper-mcp.json"), "--max-turns", "30", "--allowedTools", TOOLS_ALL], { cwd: where.dir, stdio: "ignore", detached: true }).unref()
+    return true
+  }
+  return false
+}
+export const localDir = (room: string, name: string) => running.get(`${room}/${name}`)?.dir
