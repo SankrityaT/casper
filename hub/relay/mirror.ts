@@ -1,7 +1,7 @@
 //created by kinjal
 // Relay mirror: streams every product-workspace event through the observer plane,
 // converts it to the Casper event shape (kind:"relay") and appends it to out.jsonl.
-// If HUB_URL is set it also POSTs each event to ${HUB_URL}/relay/mirror.
+// If HUB_URL is set it also POSTs each event to ${HUB_URL}/room/:room/post.
 // The seq cursor is persisted so a restart resumes with sinceSeq (no gaps, no dupes).
 //
 // Two sources, one cursor:
@@ -11,11 +11,10 @@
 import { AgentRelay } from "@agent-relay/sdk";
 import {
   DM_ROOM,
-  HUB_URL,
-  appendOut,
   channelRoom,
   loadCursor,
   loadObserver,
+  publish,
   saveCursor,
   type CasperEvent,
 } from "./state";
@@ -66,7 +65,9 @@ async function emit(n: Normalized) {
   seen.add(n.messageId);
   const isDm = n.type === "dm.received" || n.type === "group_dm.received";
   counters.total++;
-  if (n.to && HUMANS.has(n.to)) counters.toHuman++;
+  // "Reached a human": room posts (visible in the Casper room) and DMs to/from a human.
+  // Agent<->agent DMs stay backstage. DM events carry no recipient, so metadata.to is best-effort.
+  if (!isDm || HUMANS.has(n.from) || (n.to && HUMANS.has(n.to))) counters.toHuman++;
 
   const event: CasperEvent = {
     seq: n.seq ?? seq,
@@ -86,20 +87,8 @@ async function emit(n: Normalized) {
       counters: { ...counters },
     },
   };
-  appendOut(event);
-  console.log(`[${event.room}] #${event.seq} ${event.from} -> ${n.to ?? n.channel ?? "dm"}: ${event.text.slice(0, 100)}`);
-
-  if (!HUB_URL) return;
-  try {
-    const res = await fetch(`${HUB_URL}/relay/mirror`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(event),
-    });
-    if (!res.ok) console.warn(`hub POST ${res.status}`);
-  } catch (err) {
-    console.warn("hub POST failed:", (err as Error).message);
-  }
+  console.log(`[${event.room}] #${event.seq} ${event.from} -> ${n.to ?? n.channel ?? "dm"}: ${event.text.slice(0, 100)} (${counters.total} msgs / ${counters.toHuman} reached a human)`);
+  await publish(event);
 }
 
 // ---------- poll source ----------

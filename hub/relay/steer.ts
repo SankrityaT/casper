@@ -2,9 +2,10 @@
 // Human -> agent message on the product workspace, for the wait-vs-steer demo.
 //   bun run steer jack "use a column, not a new table"          (mode steer: lands mid-run)
 //   bun run steer jack "when you're done, write the changelog" --wait
-// Sends as the human identity HUMAN_NAME (default "kinjal"), registered on first use.
+// Only code lives in the product workspace, so the human's words go through the
+// casper host agent as "<Human>: <text>" (what the Casper UI does); agents credit the human.
 import { AgentRelay } from "@agent-relay/sdk";
-import { loadAgents, requireKey, writeJson } from "./state";
+import { loadAgents, requireKey } from "./state";
 
 const [agent, text, flag] = process.argv.slice(2);
 if (!agent || !text) {
@@ -12,20 +13,15 @@ if (!agent || !text) {
   process.exit(1);
 }
 const mode = flag === "--wait" ? "wait" : "steer";
-const human = process.env.HUMAN_NAME ?? "kinjal";
+const human = process.env.HUMAN_NAME ?? "Kinjal";
 
-const relay = new AgentRelay({ workspaceKey: requireKey() });
 const tokens = loadAgents();
-let client;
-if (tokens[human]) {
-  client = await relay.workspace.reconnect({ apiToken: tokens[human].token });
-} else {
-  client = await relay.workspace.register({ name: human, type: "human", metadata: { role: "human" } });
-  if (!client.token) throw new Error("no token for human identity");
-  tokens[human] = { id: client.id, token: client.token };
-  writeJson("agents.json", tokens);
+if (!tokens.casper) {
+  console.error("casper not registered, run `bun run setup` first");
+  process.exit(1);
 }
-
-await client.sendMessage({ to: `@${agent}`, text, mode, metadata: { to: agent, human: true } });
-console.log(`${human} -> @${agent} (${mode}): ${text}`);
+const relay = new AgentRelay({ workspaceKey: requireKey() });
+const casper = await relay.workspace.reconnect({ apiToken: tokens.casper.token });
+await casper.sendMessage({ to: `@${agent}`, text: `${human}: ${text}`, mode, metadata: { to: agent, human } });
+console.log(`${human} (via casper) -> @${agent} (${mode}): ${text}`);
 process.exit(0);

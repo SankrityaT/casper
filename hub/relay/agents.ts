@@ -1,5 +1,5 @@
 //created by kinjal
-// Step 2: jack (Claude) and wick (OpenAI) split the task cards over Relay.
+// Step 2: jack (Sankritya's, Claude) and batty (Kinjal's, OpenAI) split the task cards over Relay.
 //  - each calls claim(task); a conflict gets negotiated by DM ("I'm on the API, you take the UI")
 //  - each works its task in steps, posting progress to #room-<room>
 //  - wait vs steer: a human DM sent with mode "wait" queues until the agent finishes its run;
@@ -28,7 +28,7 @@ interface Incoming {
 }
 
 interface Persona {
-  name: "jack" | "wick";
+  name: "jack" | "batty";
   owner: string;
   think: Think;
   bent: string;
@@ -36,7 +36,7 @@ interface Persona {
 
 const PERSONAS: Persona[] = [
   { name: "jack", owner: "Sankritya", think: thinkClaude, bent: "You lean backend: APIs, data model, tests." },
-  { name: "wick", owner: "Kinjal", think: thinkOpenAI, bent: "You lean frontend and copy: UI, changelog, launch words." },
+  { name: "batty", owner: "Kinjal", think: thinkOpenAI, bent: "You lean frontend and copy: UI, changelog." },
 ];
 
 class Agent {
@@ -88,12 +88,14 @@ class Agent {
   }
 
   async tick() {
-    if (this.busyThinking || this.finished || this.turns >= MAX_TURNS) return;
+    if (this.busyThinking || this.turns >= MAX_TURNS) return;
+    if (this.finished && !this.steerQueue.length && !this.waitQueue.length) return;
     const extra: string[] = [];
     let steerUsed: Incoming[] = [];
 
     if (this.steerQueue.length) {
       steerUsed = this.steerQueue.splice(0);
+      console.log(`${this.p.name} <- STEER mid-run: ${steerUsed.map((s) => `${s.from}: ${s.text}`).join(" | ")}`);
       extra.push(`STEER (lands now, mid-run): ${steerUsed.map((s) => `${s.from}: ${s.text}`).join(" | ")}`);
     }
     if (this.agentInbox.length) {
@@ -110,7 +112,7 @@ class Agent {
     this.turns++;
     try {
       const a = await this.p.think(this.system(), this.prompt(extra));
-      await this.act(a, steerUsed.length > 0);
+      await this.act(a, steerUsed);
     } catch (err) {
       console.warn(`${this.p.name} turn failed:`, (err as Error).message);
     } finally {
@@ -118,7 +120,11 @@ class Agent {
     }
   }
 
-  async act(a: Action, steered: boolean) {
+  async act(a: Action, steers: Incoming[]) {
+    const steered = steers.length > 0;
+    // On camera the steer has to visibly land: acknowledge it even if the model didn't.
+    if (steered && !a.say) a.say = `Got it, ${steers[0].from}. Changing course now: ${steers[0].text}`;
+    a.step = a.step.replace(/^(\s*\[[^\]]*\]\s*)+/, "");
     if (a.claim && !this.task) {
       const r = await claim(a.claim, this.p.name, ROOM);
       if (r.ok) this.task = a.claim;
@@ -144,7 +150,7 @@ class Agent {
       });
       this.task = undefined;
       this.steps = [];
-      if (TASKS.every((t) => loadClaims()[t.id])) this.finished = !this.waitQueue.length && !this.steerQueue.length;
+      if (TASKS.every((t) => loadClaims()[t.id])) this.finished = true;
     }
   }
 
@@ -163,7 +169,7 @@ class Agent {
 const relay = new AgentRelay({ workspaceKey: requireKey() });
 const tokens = loadAgents();
 const observer = loadObserver();
-if (!observer || !tokens.jack || !tokens.wick) {
+if (!observer || !tokens.jack || !tokens.batty) {
   console.error("run `bun run setup` first");
   process.exit(1);
 }
@@ -171,7 +177,7 @@ if (!observer || !tokens.jack || !tokens.wick) {
 const agents = new Map<string, Agent>();
 for (const p of PERSONAS) {
   const client = await relay.workspace.reconnect({ apiToken: tokens[p.name].token });
-  agents.set(p.name, new Agent(p, client, p.name === "jack" ? "wick" : "jack"));
+  agents.set(p.name, new Agent(p, client, p.name === "jack" ? "batty" : "jack"));
 }
 
 // Start reading from "now" so old history doesn't trigger turns.
@@ -189,7 +195,7 @@ for (;;) {
   if (!page || !page.events.length) break;
   cursor = page.events[page.events.length - 1].seq;
 }
-console.log(`agents up (jack=Claude, wick=OpenAI), reading events after seq ${cursor}`);
+console.log(`agents up (jack=Claude, batty=OpenAI), reading events after seq ${cursor}`);
 
 await postToHub({
   room: ROOM,
@@ -200,6 +206,24 @@ await postToHub({
   meta: { tasks: TASKS.map((t) => t.id) },
 });
 
+const convMembers = new Map<string, Set<string>>();
+async function inConversation(agent: Agent, conversationId?: string) {
+  if (!conversationId) return false;
+  const known = convMembers.get(conversationId);
+  if (known?.has(agent.p.name)) return true;
+  try {
+    const inbox = await agent.client.inbox.get({ limit: 50 });
+    for (const d of inbox.unreadDms) {
+      const set = convMembers.get(d.conversationId) ?? new Set<string>();
+      set.add(agent.p.name);
+      convMembers.set(d.conversationId, set);
+    }
+  } catch (err) {
+    console.warn(`${agent.p.name} inbox:`, (err as Error).message);
+  }
+  return convMembers.get(conversationId)?.has(agent.p.name) ?? false;
+}
+
 async function pump() {
   try {
     const page = await fetchEvents(cursor);
@@ -207,19 +231,20 @@ async function pump() {
       cursor = e.seq;
       const m = e.payload?.message;
       if (!m || !["message.created", "thread.reply", "dm.received", "group_dm.received"].includes(e.type)) continue;
-      const from: string = m.agent_name ?? "unknown";
+      let from: string = m.agent_name ?? "unknown";
+      let text: string = m.text ?? "";
+      // casper relays human words as "Name: text" (see steer.ts); credit the human.
+      const relayed = from === "casper" ? /^([A-Za-z][\w-]*):\s+([\s\S]*)$/.exec(text) : null;
+      if (relayed) [from, text] = [relayed[1], relayed[2]];
       const dm = e.type === "dm.received" || e.type === "group_dm.received";
       const channel = typeof e.payload.channel === "string" ? e.payload.channel : e.payload.channel?.name;
       if (!dm && channel !== CHANNEL) continue;
-      const to: string | undefined = m.metadata?.to;
-      const incoming: Incoming = { from, text: m.text ?? "", mode: m.injection_mode ?? "wait", dm };
+      const incoming: Incoming = { from, text, mode: m.injection_mode ?? "wait", dm };
       for (const [name, agent] of agents) {
         if (name === from) continue;
-        if (dm) {
-          // DMs without metadata.to between our two agents go to the other one.
-          const target = to ?? (agent.peer === from ? name : undefined);
-          if (target !== name) continue;
-        }
+        // The event log drops DM metadata and recipients, so ask the agent's inbox whether
+        // this conversation is one of theirs.
+        if (dm && !(await inConversation(agent, e.payload.conversation_id))) continue;
         agent.receive(incoming);
       }
     }
@@ -228,8 +253,11 @@ async function pump() {
   }
 }
 
+let announcedDone = false;
 setInterval(pump, 1500);
 setInterval(() => {
   for (const a of agents.values()) void a.tick();
-  if ([...agents.values()].every((a) => a.finished)) console.log("all cards shipped; still listening for steers");
+  const allDone = [...agents.values()].every((a) => a.finished);
+  if (allDone && !announcedDone) console.log("all cards shipped; still listening for steers");
+  announcedDone = allDone;
 }, TICK_MS);

@@ -1,9 +1,9 @@
 //created by kinjal
-// The 3 task cards jack + wick split, and claim(task) against the hub.
-// HUB_URL set   -> POST ${HUB_URL}/claim {task, agent, room}; hub decides (expects {ok, owner}).
+// The 3 task cards jack + batty split, and claim(task) against the hub.
+// HUB_URL set   -> POST ${HUB_URL}/room/:room/claim {task, agent}; 200 {ok:true, owner} | 409 {ok:false, owner}.
 // HUB_URL unset -> first-come claims kept in .state/claims.json.
 // Either way a kind:"claim" event lands in out.jsonl (and on the hub mirror).
-import { DM_ROOM, HUB_URL, appendOut, readJson, writeJson, type CasperEvent } from "./state";
+import { DM_ROOM, HUB_URL, publish, readJson, writeJson, type CasperEvent } from "./state";
 
 export interface TaskCard {
   id: string;
@@ -23,29 +23,18 @@ export const taskById = (id: string) => TASKS.find((t) => t.id === id);
 type Claims = Record<string, string>; // taskId -> agent
 export const loadClaims = (): Claims => readJson<Claims>("claims.json") ?? {};
 
-export async function postToHub(event: CasperEvent) {
-  appendOut(event);
-  if (!HUB_URL) return;
-  try {
-    await fetch(`${HUB_URL}/relay/mirror`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(event),
-    });
-  } catch (err) {
-    console.warn("hub mirror POST failed:", (err as Error).message);
-  }
-}
+export const postToHub = (event: CasperEvent) => publish(event);
 
 export async function claim(taskId: string, agent: string, room = DM_ROOM): Promise<{ ok: boolean; owner: string }> {
   let result: { ok: boolean; owner: string };
   if (HUB_URL) {
     try {
-      const res = await fetch(`${HUB_URL}/claim`, {
+      const res = await fetch(`${HUB_URL}/room/${encodeURIComponent(room)}/claim`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ task: taskId, agent, room }),
+        body: JSON.stringify({ task: taskId, agent }),
       });
+      if (res.status !== 200 && res.status !== 409) throw new Error(`HTTP ${res.status}`);
       result = (await res.json()) as { ok: boolean; owner: string };
     } catch (err) {
       console.warn("hub claim failed, using local claims:", (err as Error).message);

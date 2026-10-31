@@ -18,9 +18,14 @@ export const DM_ROOM = process.env.CASPER_DM_ROOM ?? ROOMS[0] ?? "autopay";
 export const HUB_URL = (process.env.HUB_URL ?? "").replace(/\/$/, "");
 
 /** Product agents and which harness drives them. */
+// Cast (matches web/components/ws/data.tsx): jack = Sankritya's coder (Claude), batty = Kinjal's
+// coder (OpenAI), wick = growth/launch agent on the cloud computer (step 3), casper = room host
+// (relays human words, e.g. a steer typed in the Casper UI).
 export const PRODUCT_AGENTS = [
   { name: "jack", harness: "claude-code" },
-  { name: "wick", harness: "codex" },
+  { name: "batty", harness: "codex" },
+  { name: "wick", harness: "computer" },
+  { name: "casper", harness: "host" },
 ] as const;
 
 export const roomChannel = (room: string) => `room-${room}`;
@@ -67,4 +72,20 @@ export interface CasperEvent {
 
 export function appendOut(event: CasperEvent) {
   appendFileSync(OUT_FILE, JSON.stringify(event) + "\n");
+}
+
+/** Append to out.jsonl, and when HUB_URL is set POST to the hub: /room/:room/post {from,text,kind,meta,...}. */
+export async function publish(event: CasperEvent) {
+  appendOut(event);
+  if (!HUB_URL) return;
+  try {
+    const res = await fetch(`${HUB_URL}/room/${encodeURIComponent(event.room)}/post`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(event),
+    });
+    if (!res.ok) console.warn(`hub post ${res.status}`);
+  } catch (err) {
+    console.warn("hub post failed:", (err as Error).message);
+  }
 }
