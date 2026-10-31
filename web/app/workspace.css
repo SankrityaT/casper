@@ -817,3 +817,24 @@
 .ws .lv-bell-meta{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-3)}
 .ws .lv-bell-meta b{color:var(--ink)}
 .ws .lv-link{background:none;border:0;color:var(--violet);cursor:pointer;padding:0;font:inherit}
+.ws .lv-cv{position:relative;grid-row:2;grid-column:1;min-height:0;overflow:hidden;background:radial-gradient(circle at 1px 1px,rgba(255,255,255,.05) 1px,transparent 0) 0 0/22px 22px}
+.ws .lv-cv-wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.ws .lv-cv-wires .w{fill:none;stroke:#3a3a36;stroke-width:1.5}
+.ws .lv-cv-wires .w.own{stroke:rgba(88,196,126,.45);stroke-dasharray:4 4}
+.ws .lv-cv-wires .w.hot{stroke:var(--violet);stroke-width:2.5;stroke-dasharray:6 6;animation:lvdash 1s linear infinite}
+@keyframes lvdash{to{stroke-dashoffset:-24}}
+.ws .lv-cv-hint{position:absolute;left:20px;top:16px;font-size:12px;color:var(--ink-3)}
+.ws .lv-cv-agent{position:absolute;transform:translate(-50%,-60%);display:flex;flex-direction:column;align-items:center;gap:6px;transition:opacity .3s}
+.ws .lv-cv-agent .fig{width:96px;height:110px;display:grid;place-items:center}
+.ws .lv-cv-agent .tag{font-size:12.5px;color:var(--ink);background:var(--card);border:1px solid var(--line-2);border-radius:999px;padding:3px 10px;white-space:nowrap}
+.ws .lv-cv-agent .tag small{color:var(--violet)}
+.ws .lv-cv-agent.hushed{opacity:.45}
+.ws .lv-cv-agent.talking .tag{border-color:var(--violet)}
+.ws .lv-cv-card{position:absolute;width:17%;min-width:0;padding:10px 12px;border-radius:12px;border:1px solid var(--line-2);background:var(--card);display:flex;flex-direction:column;gap:3px}
+.ws .lv-cv-card small{font-size:11px;color:var(--ink-3)}
+.ws .lv-cv-card.owned{border-color:rgba(88,196,126,.35)}
+.ws .lv-cv-card.owned small{color:var(--green)}
+.ws .lv-cv-card b{font-size:13px;color:var(--ink);overflow-wrap:anywhere}
+.ws .lv-cv-bells{position:absolute;right:16px;top:16px;width:24%;min-width:220px;display:flex;flex-direction:column;gap:8px;max-height:calc(100% - 90px);overflow:auto}
+.ws .lv-cv-bells .lv-bell{margin:0}
+.ws .lv-cv-say{position:absolute;left:20px;right:28%;bottom:18px;font-size:13px;color:var(--ink-2);background:rgba(25,25,24,.9);border:1px solid var(--line);border-radius:12px;padding:8px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

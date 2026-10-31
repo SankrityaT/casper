@@ -16,7 +16,7 @@ import NewRoom from "@/components/ws/NewRoom";
 import Summon, { type Summoned } from "@/components/ws/Summon";
 import { SourceCtx } from "@/components/ws/SourcePeek";
 import { BellPage, AgentsPage, LibraryPage, SettingsPage, UsagePage } from "@/components/ws/Pages";
-import LiveRoom, { LiveBells } from "@/components/ws/Live";
+import LiveRoom, { LiveBells, LiveCanvas } from "@/components/ws/Live";
 import { HUB, listRooms, createRoom } from "@/lib/live";
 const LIVE = "autopay";
 
@@ -440,7 +440,8 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
               </div>
             </div>
 
-            {room !== "autopay-launch" && view === "canvas" && (
+            {isLive(room) && view === "canvas" && <LiveCanvas key={room} room={room} />}
+            {room !== "autopay-launch" && !isLive(room) && view === "canvas" && (
               <div className="cv">
                 <div className="hint">#{room} · {ROOMS[room].topic}</div>
                 {ROOMS[room].cards.map((c, k) => (

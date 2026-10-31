@@ -330,3 +330,58 @@ export function LiveBells({ goRoom }: { goRoom: (r: string) => void }) {
     </div>
   );
 }
+
+/* The canvas, live: agents in a row, the task cards they own, the Relay wires between them (the last few
+   messages pulse), and anything waiting on the bell. */
+export function LiveCanvas({ room }: { room: string }) {
+  const s = useLive(room);
+  const d = useMemo(() => derive(s.evs), [s.evs]);
+  const agents = [...new Set(s.evs.map((e) => e.from.toLowerCase().split("#")[0]).filter((f) => !["sankritya", "kinjal", "you", "stretch"].includes(f)))].slice(0, 6);
+  // layout in percent of the canvas; the right 26% is kept for the bell
+  const AX = (i: number) => (agents.length <= 1 ? 36 : 8 + (i * 56) / (agents.length - 1));
+  const pos = new Map(agents.map((a, i) => [a, { x: AX(i), y: 34 }]));
+  const recent = d.backchannel.slice(-8);
+  const last = recent[recent.length - 1];
+  const tasks = d.tasks.length ? d.tasks.map((t) => t.title) : Object.keys(d.claims);
+  const CX = (i: number) => 3 + (i % 4) * 18.5, CY = (i: number) => 66 + Math.floor(i / 4) * 13;
+  const open = Object.values(d.asks).filter((a) => !a.done);
+  return (
+    <div className="lv-cv">
+      <svg className="lv-cv-wires" viewBox="0 0 100 100" preserveAspectRatio="none">
+        {recent.map((e, i) => {
+          const a = pos.get(e.from.toLowerCase()), b = pos.get(String(e.meta?.to ?? "").toLowerCase());
+          if (!a || !b) return null;
+          return <path key={i} d={`M${a.x} ${a.y - 6} Q${(a.x + b.x) / 2} ${a.y - 22 - (i % 3) * 3} ${b.x} ${b.y - 6}`} className={`w ${e === last ? "hot" : ""}`} vectorEffect="non-scaling-stroke" />;
+        })}
+        {tasks.map((t, i) => {
+          const owner = d.claims[t]; const a = owner ? pos.get(owner.toLowerCase()) : null;
+          return a ? <path key={t} d={`M${a.x} ${a.y + 9} L${CX(i) + 8} ${CY(i)}`} className="w own" vectorEffect="non-scaling-stroke" /> : null;
+        })}
+      </svg>
+      <div className="lv-cv-hint">{agents.length} agents · {d.backchannel.length} messages on Relay · {d.reached} reached you</div>
+      {agents.map((a) => {
+        const p = pos.get(a)!; const hushed = d.hushed.has(a);
+        const talking = !!last && (last.from.toLowerCase() === a || String(last.meta?.to ?? "").toLowerCase() === a);
+        const id = idOf(a);
+        return (
+          <div key={a} className={`lv-cv-agent ${hushed ? "hushed" : ""} ${talking ? "talking" : ""}`} style={{ left: `${p.x}%`, top: `${p.y}%` }}>
+            <div className="fig">{id && P[id].kind ? <Agent kind={P[id].kind!} mood={talking ? "happy" : hushed ? "sleep" : "calm"} className="size-full" /> : <Face who={a} size={64} />}</div>
+            <div className="tag">{nameOf(a)}{hushed && <small> · hushed</small>}</div>
+          </div>
+        );
+      })}
+      {tasks.map((t, i) => {
+        const owner = d.claims[t];
+        return (
+          <div key={t} className={`lv-cv-card ${owner ? "owned" : ""}`} style={{ left: `${CX(i)}%`, top: `${CY(i)}%` }}>
+            <small>{owner ? `${nameOf(owner)} owns it` : "Open"}</small><b>{t}</b>
+          </div>
+        );
+      })}
+      <div className="lv-cv-bells">
+        {open.map((a) => <BellCard key={String(a.ev.meta?.askId)} ev={a.ev} room={room} />)}
+      </div>
+      {last && <div className="lv-cv-say">{nameOf(last.from)} → {nameOf(String(last.meta?.to ?? "room"))}: {last.text}</div>}
+    </div>
+  );
+}
