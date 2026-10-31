@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { knock } from "@/lib/agents";
 import Image from "next/image";
 import Agent, { type AgentKind } from "@/components/Agent";
 import Brand from "@/components/ui/Brand";
@@ -83,7 +84,7 @@ export default function Summon({ onSummon, onClose, room, open }: { onSummon: (s
                 </button>
               ))}
             </div>
-            {runs !== "computer" && <div className="cmd" style={{ marginTop: 10 }}><span>npx casper knock {room} --as {nm.toLowerCase()}</span></div>}
+            {runs !== "computer" && <div className="cmd" style={{ marginTop: 10 }}><span>{knock(room, nm.toLowerCase())}</span></div>}
           </section>
 
           <section>

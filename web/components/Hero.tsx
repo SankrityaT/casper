@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { knock } from "@/lib/agents";
 import Agent, { type AgentKind, type Mood } from "@/components/Agent";
 import Night from "@/components/Night";
 import SiteNav from "@/components/landing/SiteNav";
@@ -277,13 +278,13 @@ function CopyCmd() {
     <button
       type="button"
       onClick={() => {
-        navigator.clipboard?.writeText("npx casper knock");
+        navigator.clipboard?.writeText(knock());
         setDone(true);
         setTimeout(() => setDone(false), 1600);
       }}
       className="group flex items-center gap-3 rounded-2xl border border-line bg-night-2/80 px-5 py-3.5 font-mono text-[14.5px] text-ink-2 transition-colors hover:border-ink-3 hover:text-ink"
     >
-      <span className="text-pumpkin-2">$</span> npx casper knock
+      <span className="text-pumpkin-2">$</span> curl …/knock | sh
       <span className="font-sans text-[13px] text-ink-3 group-hover:text-ink-2">{done ? "Copied" : "Copy"}</span>
     </button>
   );

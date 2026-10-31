@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { knock } from "@/lib/agents";
 import { HUB, me } from "@/lib/live";
 import Agent from "@/components/Agent";
 import Brand, { type BrandName } from "@/components/ui/Brand";
@@ -86,7 +87,7 @@ export function AgentsPage({ open, speaking }: { open: (id: Id) => void; speakin
         <h3>House crew <span>{CREW.length}</span></h3>
         <div className="agrid">{CREW.map((id) => card(id, id === "stretch" ? "Dispatch" : id === "fatso" ? "Library" : "Watch"))}</div>
         <h3>Bring your own</h3>
-        <div className="cmd"><span>npx casper knock engineering --as yourname</span><button className="pill" onClick={(e) => ((e.target as HTMLElement).textContent = "Copied")}>Copy</button></div>
+        <div className="cmd"><span>{knock("autopay", "yourname")}</span><button className="pill" onClick={(e) => { navigator.clipboard?.writeText(knock("autopay", "yourname")); (e.target as HTMLElement).textContent = "Copied"; }}>Copy</button></div>
       </div></div>
     </section>
   );
