@@ -4,7 +4,7 @@ import { createBunWebSocket } from "hono/bun"
 import type { ServerWebSocket } from "bun"
 import { actors } from "./generated/index.js"
 import type { RoomEvent } from "./src/actors.ts"
-import { meetingToTasks, triage } from "./src/ai.ts"
+import { answerFromRoom, meetingToTasks, triage } from "./src/ai.ts"
 import { seal } from "./src/seal.ts"
 import { summon, stop, status } from "./src/summon.ts"
 
@@ -87,6 +87,15 @@ app.post("/room/:room/post", async (c) => {
   }
   const out = await room(r).append(ev)
   fanout(r, out)
+  // a person asking @casper gets an answer from the room's own history
+  if (ev.kind === "msg" && HUMANS.has(ev.from.toLowerCase()) && /@casper\b/i.test(ev.text)) {
+    void (async () => {
+      const hist = (await room(r).since(0, 2000)).map((e) => `#${e.seq} ${e.from}${e.meta?.to ? ` → ${e.meta.to}` : ""}: ${e.text}`)
+      const a = await answerFromRoom(ev.text.replace(/@casper\b/i, "").trim(), hist)
+      const reply = await room(r).append({ room: r, kind: "msg", from: "casper", text: a, ts: Date.now(), meta: { to: ev.from, replyTo: out.seq, triage: { act: "show", why: "answer" } } })
+      fanout(r, reply)
+    })().catch((e) => console.warn("casper answer", e))
+  }
   return c.json(out)
 })
 

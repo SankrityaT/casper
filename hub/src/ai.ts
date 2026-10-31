@@ -47,3 +47,12 @@ When unsure, show.`,
   const act = out?.act === "silent" || out?.act === "ask" ? out.act : "show"
   return { act, why: String(out?.why ?? "").slice(0, 80) }
 }
+
+/** Casper answers a person's question from the room's own history (the room is the memory). */
+export async function answerFromRoom(question: string, history: string[]): Promise<string> {
+  const out = await chatJson<{ answer?: string }>(
+    "gpt-5.4-mini",
+    `You are Casper, the host of a team room where people and AI agents work. Answer the person's question using ONLY the room history below. Quote who said what (name and #seq) when it helps. If the history doesn't contain the answer, say so in one line. Max 3 sentences. Return JSON {"answer": "..."}.`,
+    `Room history (oldest first):\n${history.slice(-250).join("\n")}\n\nQuestion: ${question}`, 30000)
+  return out?.answer?.trim() || "I couldn't find that in this room."
+}
