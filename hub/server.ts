@@ -360,6 +360,11 @@ app.get("/room/:room/grant", async (c) => {
   return c.json(g)
 })
 
+app.post("/room/:room/reset", async (c) => {
+  const r = c.req.param("room"), b = await body(c)
+  return c.json(await room(r).reset(typeof b.topic === "string" ? b.topic : "Ship Hush today and announce it."))
+})
+
 app.get("/room/:room/events", async (c) => c.json(await room(c.req.param("room")).since(Number(c.req.query("since") ?? 0) || 0)))
 app.get("/room/:room/ask/:id", async (c) => c.json((await room(c.req.param("room")).ask(c.req.param("id"))) ?? { status: "none", decidedBy: null }))
 app.get("/room/:room/summary", async (c) => c.json(await room(c.req.param("room")).summary()))

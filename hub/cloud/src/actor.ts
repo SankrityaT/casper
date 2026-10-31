@@ -127,6 +127,13 @@ export class Room extends Actor<Watcher, string, Push> {
     return r.length ? { status: r[0].status, decidedBy: r[0].decided_by } : null
   }
 
+  /** Start the room over: clears its log, claims, bells and hush (used to reset a demo room). */
+  async reset(topic: string): Promise<RoomEvent> {
+    for (const t of ["events", "claims", "asks", "hush"]) this.db.exec(`DELETE FROM ${t}`)
+    this.db.exec(`DELETE FROM sqlite_sequence WHERE name = 'events'`)
+    return put(this.db, this.id, { room: roomName(this.id), kind: "msg", from: "casper", text: `Welcome to #${roomName(this.id)}. ${topic}`, ts: Date.now(), meta: { triage: { act: "show", why: "room opened" } } })
+  }
+
   /** The room at a glance: last seq, owners, hushed agents, open bells. */
   async summary(): Promise<{ lastSeq: number; claims: Record<string, string>; hushed: string[]; openAsks: string[] }> {
     const last = this.db.exec<{ s: number | null }>(`SELECT MAX(seq) AS s FROM events`)[0]?.s ?? 0
