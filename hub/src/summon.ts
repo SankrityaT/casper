@@ -64,7 +64,8 @@ function boat(args: string[], timeoutMs = 180_000): string {
   const r = Bun.spawnSync([BOAT, args[0], "--no-update", ...args.slice(1)], { stdout: "pipe", stderr: "pipe", timeout: timeoutMs })
   const out = r.stdout.toString() + r.stderr.toString()
   if (r.exitCode !== 0) {
-    const m = /"stderr":"([^"]*)"/.exec(out)?.[1] ?? /"error":"([^"]*)"/.exec(out)?.[1] ?? out
+    const m = (/"stderr":"([^"]+)"/.exec(out)?.[1] ?? /"error":"([^"]+)"/.exec(out)?.[1] ?? /"stdout":"([^"]+)"/.exec(out)?.[1] ?? out).slice(-400)
+    console.warn("boat failed:", args[0], out.slice(-600))
     throw new Error(m.replace(/\\n/g, " ").replace(/\s+/g, " ").trim().slice(0, 160))
   }
   return out
@@ -100,7 +101,7 @@ export async function summonOnBoat(i: SummonInput & { publicHub: string }, say: 
   pushText(vm, "/home/user/.casper", { "push-gate.sh": readFileSync(resolve(REPO, "hub/hooks/push-gate.sh"), "utf8") })
   pushText(vm, "/home/user/.casper-keys", { anthropic: keys[Math.floor(Math.random() * keys.length)] ?? "", ...(gh ? { github: gh } : {}) })
   boatExec(vm, [
-    "set -e",
+    "set -e; trap 'echo FAILED AT: $BASH_COMMAND' ERR",
     "rm -rf ~/casper && git init -q -b scratch ~/casper && cd ~/casper",
     "git fetch -q ~/bundle/casper.bundle 'refs/remotes/origin/main:refs/remotes/origin/main'",
     `git checkout -q -b ${branch} origin/main`,
@@ -109,8 +110,9 @@ export async function summonOnBoat(i: SummonInput & { publicHub: string }, say: 
     `git config --global credential.helper '!f() { echo username=x-access-token; echo password=$(cat ~/.casper-keys/github 2>/dev/null); }; f'`,
     `chmod +x ~/.casper/push-gate.sh`,
     `export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:/usr/local/bin:$PATH"`,
-    `claude mcp remove casper -s user >/dev/null 2>&1; claude mcp add --transport http -s user casper '${i.publicHub}/mcp?room=${i.room}&agent=${i.name}'`,
+    `(claude mcp remove casper -s user >/dev/null 2>&1 || true); claude mcp add --transport http -s user casper '${i.publicHub}/mcp?room=${i.room}&agent=${i.name}'`,
     `test -x ~/.casper/push-gate.sh`,
+    `python3 -c "import json,os; p=os.path.expanduser('~/.claude.json'); s=json.load(open(p)) if os.path.exists(p) else {}; pr=s.setdefault('projects',{}).setdefault(os.path.expanduser('~/casper'),{}); pr['hasTrustDialogAccepted']=True; pr['hasCompletedProjectOnboarding']=True; s['hasCompletedOnboarding']=True; json.dump(s,open(p,'w'))"`,
     `python3 -c "import json,os; p=os.path.expanduser('~/.claude/settings.json'); s=json.load(open(p)) if os.path.exists(p) else {}; s.setdefault('hooks',{})['PreToolUse']=[{'matcher':'Bash','hooks':[{'type':'command','command':'CASPER_HUB=${i.publicHub} CASPER_ROOM=${i.room} CASPER_AGENT=${i.name} CASPER_APPROVER=${i.approver} /home/user/.casper/push-gate.sh'}]}]; json.dump(s,open(p,'w'))"`,
   ].join("\n"))
   const prompt = `You are ${i.name}, an agent in the Casper room #${i.room}, on your own computer (boat ${vm}) with the Casper repo at ~/casper on branch ${branch}.
@@ -119,7 +121,7 @@ The casper tools let you read the room, see and claim tasks, post to people, and
   pushText(vm, "/home/user/.casper-task", { "prompt.txt": prompt })
   const tools = "mcp__casper__read_room,mcp__casper__post,mcp__casper__claim,mcp__casper__tasks,mcp__casper__ring_bell,mcp__casper__check_bell,Read,Edit,Write,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git log:*),Bash(sleep:*)"
   // run it in a terminal on the VM's desktop so people can watch it work; headless if there's no desktop terminal
-  pushText(vm, "/home/user/.casper-task", { "prompt.txt": prompt, "run.sh": `#!/bin/bash\ncd ~/casper\nexport ANTHROPIC_API_KEY=$(cat ~/.casper-keys/anthropic)\nclaude --permission-mode acceptEdits --allowedTools '${tools}' "$(cat ~/.casper-task/prompt.txt)"\nexec bash\n` })
+  pushText(vm, "/home/user/.casper-task", { "prompt.txt": prompt, "show.py": readFileSync(resolve(REPO, "hub/hooks/show.py"), "utf8"), "run.sh": `#!/bin/bash\ncd ~/casper\nexport ANTHROPIC_API_KEY=$(cat ~/.casper-keys/anthropic)\necho "${i.name}: working on its own computer"\nclaude -p "$(cat ~/.casper-task/prompt.txt)" --verbose --output-format stream-json --max-turns 60 --allowedTools '${tools}' 2>>~/agent.err | tee -a ~/agent.jsonl | python3 ~/.casper-task/show.py | tee -a ~/agent.log\nexec bash\n` })
   const term = boatExec(vm, `chmod +x ~/.casper-task/run.sh; export DISPLAY=:0; if command -v gnome-terminal >/dev/null; then (setsid gnome-terminal --geometry=160x45 -- bash -lc ~/.casper-task/run.sh >/dev/null 2>&1 &); echo desktop; elif command -v xterm >/dev/null; then (setsid xterm -fa Monospace -fs 11 -geometry 160x45 -e bash -lc ~/.casper-task/run.sh >/dev/null 2>&1 &); echo desktop; else echo none; fi`).trim()
   if (term !== "desktop") boat(["exec", vm, "--detach", `cd ~/casper && ANTHROPIC_API_KEY=$(cat ~/.casper-keys/anthropic) claude -p "$(cat ~/.casper-task/prompt.txt)" --max-turns 60 --allowedTools '${tools}' > ~/agent.log 2>&1`])
   let desktopUrl: string | undefined
