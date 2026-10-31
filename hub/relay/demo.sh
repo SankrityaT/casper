@@ -12,7 +12,7 @@ set -u
 ROOT=$(cd "$(dirname "$0")/../.." && pwd); R=$ROOT/hub/relay; C=$ROOT/hub/computer; LOGS=/tmp/casper-demo
 mkdir -p $LOGS
 env_get(){ grep "^$1=" "$ROOT/.env" | head -1 | cut -d= -f2-; }
-HUB=$(env_get HUB_URL); ROOM=${CASPER_DM_ROOM:-autopay}; BOAT=$(env_get BOAT_API_KEY)
+HUB=$(env_get HUB_URL); ROOM=$(env_get CASPER_DM_ROOM); ROOM=${ROOM:-autopay}; BOAT=$(env_get BOAT_API_KEY)
 ok(){ printf "  \033[32m✓\033[0m %s\n" "$*"; }; bad(){ printf "  \033[31m✗\033[0m %s\n" "$*"; FAIL=1; }
 running(){ pgrep -f "$1" >/dev/null; }
 

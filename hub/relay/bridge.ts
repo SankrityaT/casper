@@ -22,7 +22,7 @@ const relay = new AgentRelay({ workspaceKey: requireKey() });
 const casper = await relay.workspace.reconnect({ apiToken: tokens.casper.token });
 
 // Start at the hub's head so old messages don't replay; the cursor survives restarts.
-let since = readJson<{ seq: number }>("bridge-cursor.json")?.seq;
+let since = readJson<{ seq: number }>(`bridge-cursor-${DM_ROOM}.json`)?.seq;
 if (since === undefined) {
   const summary = (await (await fetch(`${HUB_URL}/room/${DM_ROOM}/summary`)).json()) as { lastSeq?: number };
   since = summary.lastSeq ?? 0;
@@ -40,7 +40,7 @@ async function tick() {
       if (typeof head === "number" && head < since!) {
         console.log(`hub head ${head} < cursor ${since}; rewinding`);
         since = head;
-        writeJson("bridge-cursor.json", { seq: since });
+        writeJson(`bridge-cursor-${DM_ROOM}.json`, { seq: since });
       }
     }
     const res = await fetch(`${HUB_URL}/room/${DM_ROOM}/events?since=${since}`);
@@ -48,7 +48,7 @@ async function tick() {
     const events = (await res.json()) as { seq: number; kind: string; from: string; text: string; meta?: { to?: string; mode?: string } }[];
     for (const e of events) {
       since = Math.max(since!, e.seq);
-      writeJson("bridge-cursor.json", { seq: since });
+      writeJson(`bridge-cursor-${DM_ROOM}.json`, { seq: since });
       const to = e.meta?.to?.replace(/^@/, "");
       if (e.kind !== "msg" || !HUMANS.has(e.from) || !to || !AGENTS.has(to)) continue;
       const mode = e.meta?.mode === "steer" ? "steer" : "wait";
