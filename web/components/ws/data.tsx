@@ -258,7 +258,7 @@ export function applySession(s: { agent: { name: string; kind: AgentKind; runsOn
     const t = swap(ORIG.script[i]);
     e.text = e.who === "jack" ? inVoice(t, s.voice) : t;
   });
-  Object.entries(ROOMS).forEach(([k, r]) => r.msgs.forEach((m, i) => (m.text = swap(ORIG.rooms[k][i]))));
+  Object.entries(ROOMS).forEach(([k, r]) => r.msgs.forEach((m, i) => { const o = ORIG.rooms[k]?.[i]; if (o !== undefined) m.text = swap(o); }));
   void ORIG.name;
   void ORIG.kind;
 }

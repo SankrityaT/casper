@@ -569,8 +569,10 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
         {photo && <GroupPhoto onClose={() => setPhoto(false)} />}
         {summonOpen && <Summon room={room} open={ROOMS[room]?.cards.filter((c) => c.k === "Open").map((c) => c.t) ?? []} onClose={() => setSummonOpen(false)} onSummon={summon} />}
         {newRoom && <NewRoom onClose={() => setNewRoom(false)} onCreate={(r) => {
-          ROOMS[r.slug] = { topic: r.topic, msgs: r.msgs, cards: r.cards };
-          setNewRoom(false); openRoom(r.slug); onView("chat");
+          let slug = r.slug.replace(/^-+|-+$/g, "").slice(0, 40) || "new-room";
+          for (let n = 2; ROOMS[slug]; n++) slug = `${r.slug.slice(0, 37)}-${n}`;
+          ROOMS[slug] = { topic: r.topic, msgs: r.msgs.map((m) => ({ ...m, text: m.text.split(`#${r.slug}`).join(`#${slug}`) })), cards: r.cards };
+          setNewRoom(false); openRoom(slug); onView("chat");
         }} />}
       </div>
     </div>

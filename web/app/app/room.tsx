@@ -9,5 +9,5 @@ export default function Room() {
   if (!hydrated) return <main className="h-svh bg-night" />;
   // your onboarding choices become the room: your agent's name, look and voice (safe to repeat)
   applySession(loadSession());
-  return <main className="h-svh overflow-hidden bg-night"><Workspace full /></main>;
+  return <main className="h-svh overflow-x-auto overflow-y-hidden bg-night"><Workspace full /></main>;
 }
