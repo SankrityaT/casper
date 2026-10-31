@@ -1,4 +1,4 @@
-import { Actor, type ActorContext, type ActorDatabase } from "terse-sdk/actor"
+import { Actor, type ActorContext, type ActorDatabase, type ActorSocket } from "terse-sdk/actor"
 
 /* One Room actor per Casper room. Its single mailbox is the referee:
    - every event gets the next seq, in order, exactly once (dedupe by a client/relay key);
@@ -48,11 +48,24 @@ function put(db: ActorDatabase, room: string, ev: RoomEvent): RoomEvent {
   return out
 }
 
-export class Room extends Actor {
+type Watcher = { who?: string; since?: number }
+type Push = { type: "event"; event: RoomEvent } | { type: "events"; events: RoomEvent[] }
+
+/* Browsers connect to this actor directly over Terse's WebSocket (the app hands out a grant): on connect they get
+   everything since their last seq, then every new event is pushed from inside the actor, in order. No hub, no tunnel. */
+export class Room extends Actor<Watcher, string, Push> {
   constructor(ctx: ActorContext) {
     super(ctx)
     schema(this.db)
   }
+
+  async onConnect(socket: ActorSocket<Watcher, Push>): Promise<void> {
+    const since = Number(socket.metadata?.since ?? 0) || 0
+    const rows = this.db.exec<{ ev: string }>(`SELECT ev AS ev FROM events WHERE seq > ? ORDER BY seq LIMIT 2000`, since)
+    socket.send({ type: "events", events: rows.map((r) => JSON.parse(r.ev) as RoomEvent) })
+  }
+
+  async onMessage(): Promise<void> { /* writes go through the app's routes (auth, triage); the socket is for watching */ }
 
   /** Append any event (a message, a relay message, a computer update, a bell). Returns it with its seq. */
   async append(ev: RoomEvent): Promise<RoomEvent> {
@@ -60,6 +73,7 @@ export class Room extends Actor {
     if (out.kind === "bell" && out.meta?.askId) {
       this.db.exec(`INSERT OR IGNORE INTO asks (id, status, version) VALUES (?, 'open', 0)`, String(out.meta.askId))
     }
+    this.broadcast({ type: "event", event: out })
     return out
   }
 
@@ -75,13 +89,16 @@ export class Room extends Actor {
     const owner = ok ? agent : have[0].owner
     const event = put(this.db, this.id, { room: roomName(this.id), kind: "claim", from: agent, text: task, ts: Date.now(), meta: { task, ok, owner } })
     if (ok && !have.length) this.db.exec(`INSERT INTO claims (task, owner, seq) VALUES (?, ?, ?)`, task, agent, event.seq ?? 0)
+    this.broadcast({ type: "event", event })
     return { ok, owner, event }
   }
 
   /** Hush or unhush an agent. It keeps working; the room holds its messages. */
   async hush(target: string, on: boolean, by: string): Promise<RoomEvent> {
     this.db.exec(`INSERT INTO hush (target, is_on) VALUES (?, ?) ON CONFLICT(target) DO UPDATE SET is_on = excluded.is_on`, target, on ? 1 : 0)
-    return put(this.db, this.id, { room: roomName(this.id), kind: "hush", from: by, text: on ? `hushed ${target}` : `unhushed ${target}`, ts: Date.now(), meta: { target, on } })
+    const event = put(this.db, this.id, { room: roomName(this.id), kind: "hush", from: by, text: on ? `hushed ${target}` : `unhushed ${target}`, ts: Date.now(), meta: { target, on } })
+    this.broadcast({ type: "event", event })
+    return event
   }
 
   /** Answer a bell exactly once. A second answer loses and learns who decided. */
@@ -94,6 +111,7 @@ export class Room extends Actor {
     const status = yes ? "approved" : "declined"
     this.db.exec(`UPDATE asks SET status = ?, version = version + 1, decided_by = ? WHERE id = ? AND version = ?`, status, by, askId, cur.version)
     const event = put(this.db, this.id, { room: roomName(this.id), kind: "approve", from: by, text: yes ? "approved" : "not now", ts: Date.now(), meta: { askId, yes, by } })
+    this.broadcast({ type: "event", event })
     return { ok: true, status, decidedBy: by, event }
   }
 
@@ -107,6 +125,13 @@ export class Room extends Actor {
   async ask(askId: string): Promise<{ status: string; decidedBy: string | null } | null> {
     const r = this.db.exec<{ status: string; decided_by: string | null }>(`SELECT status AS status, decided_by AS decided_by FROM asks WHERE id = ?`, askId)
     return r.length ? { status: r[0].status, decidedBy: r[0].decided_by } : null
+  }
+
+  /** Start the room over: clears its log, claims, bells and hush (used to reset a demo room). */
+  async reset(topic: string): Promise<RoomEvent> {
+    for (const t of ["events", "claims", "asks", "hush"]) this.db.exec(`DELETE FROM ${t}`)
+    this.db.exec(`DELETE FROM sqlite_sequence WHERE name = 'events'`)
+    return put(this.db, this.id, { room: roomName(this.id), kind: "msg", from: "casper", text: `Welcome to #${roomName(this.id)}. ${topic}`, ts: Date.now(), meta: { triage: { act: "show", why: "room opened" } } })
   }
 
   /** The room at a glance: last seq, owners, hushed agents, open bells. */

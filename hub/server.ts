@@ -4,7 +4,7 @@ import { createBunWebSocket } from "hono/bun"
 import type { ServerWebSocket } from "bun"
 import { actors } from "./generated-cloud/index.js"
 import type { RoomEvent } from "./src/actors.ts"
-import { answerFromRoom, meetingToTasks, triage, usage } from "./src/ai.ts"
+import { answerFromRoom, assign, dispatch, jevUsage, meetingToTasks, triage, usage } from "./src/ai.ts"
 import { seal } from "./src/seal.ts"
 import { summon, stop, status, summonOnBoat, boatAgents, deliver, localDir } from "./src/summon.ts"
 
@@ -36,6 +36,30 @@ const wing = actors.Wing.get("wing.main")
 const HUMANS = new Set(["sankritya", "kinjal", "you"])
 const known = new Set<string>()
 const listed = async (r: string) => { if (known.has(r)) return; await wing.ensure(r, "A room agents started"); known.add(r) }
+
+/* proactive work: Stretch dispatches without anyone summoning or @-ing */
+const NAMES = ["salem", "luna", "gourd", "nox", "taper", "boo", "hex", "mort"]
+async function roomAgents(r: string) {
+  const evs = await room(r).since(0, 2000)
+  const vms = new Map<string, string>()
+  for (const e of evs) if (e.kind === "computer" && typeof e.meta?.vm === "string" && e.meta?.backend === "boat") vms.set(String(e.meta?.agent ?? e.from).toLowerCase(), String(e.meta.vm))
+  const names = [...new Set(evs.map((e) => e.from.toLowerCase().split("#")[0]).filter((n) => !HUMANS.has(n) && n !== "casper" && n !== "stretch"))]
+  return { evs, vms, names }
+}
+async function autoSummon(r: string, task: string, by: string) {
+  const { names } = await roomAgents(r)
+  const taken = reserved.get(r) ?? new Set<string>(); reserved.set(r, taken)
+  const name = NAMES.find((n) => !names.includes(n) && !taken.has(n)) ?? `agent${Date.now().toString(36).slice(-3)}`
+  taken.add(name)
+  const say = async (text: string, meta?: Record<string, unknown>) => { const ev = await room(r).append({ room: r, kind: "computer", from: name, text, ts: Date.now(), meta: { agent: name, ...(meta ?? {}) } }); fanout(r, ev) }
+  const hello = await room(r).append({ room: r, kind: "msg", from: "stretch", text: `Starting ${name} on its own computer for: ${task}`, ts: Date.now(), meta: { triage: { act: "show", why: "dispatch" } } })
+  fanout(r, hello)
+  summonOnBoat({ room: r, name, task, by, approver: HUMANS.has(by) ? by : "sankritya", hub: "", publicHub: process.env.HUB_PUBLIC_URL ?? "" }, say)
+    .catch((e) => say(`I couldn't get my computer ready (${(e as Error).message}).`))
+  return name
+}
+const AUTO_MAX_NEW = Number(process.env.CASPER_AUTO_MAX_NEW ?? 3)
+const reserved = new Map<string, Set<string>>()
 
 // who is watching which room
 const watchers = new Map<string, Set<{ send: (s: string) => void }>>()
@@ -100,7 +124,7 @@ app.post("/room/:room/post", async (c) => {
       const vmEv = [...evs].reverse().find((e) => e.kind === "computer" && String(e.meta?.agent ?? e.from).toLowerCase() === to && typeof e.meta?.vm === "string" && e.meta?.backend === "boat")
       const ok = deliver({ vm: vmEv?.meta?.vm as string | undefined, dir: localDir(r, to) }, ev.from, ev.text, ev.meta?.mode === "steer")
       if (ok) {
-        const note = await room(r).append({ room: r, kind: "msg", from: "casper", text: `Woke ${to} with your message${vmEv ? ` on its computer (boat ${vmEv.meta!.vm})` : ""}. It will answer here.`, ts: Date.now(), meta: { to: ev.from, triage: { act: "silent", why: "delivery note" } } })
+        const note = await room(r).append({ room: r, kind: "msg", from: "casper", text: `${to} is on it.`, ts: Date.now(), meta: { typing: to, to: ev.from, triage: { act: "silent", why: "typing" } } })
         fanout(r, note)
       } else if (!evs.some((e) => e.from.toLowerCase() === to && e.kind !== "computer" && Date.now() - (typeof e.ts === "number" ? e.ts : Date.parse(String(e.ts))) < 5 * 60_000)) {
         // not summoned here and not active lately: it may be someone's own agent that reads the room when it next runs
@@ -108,6 +132,29 @@ app.post("/room/:room/post", async (c) => {
         fanout(r, note)
       }
     })().catch((e) => console.warn("deliver", e))
+  }
+  // nobody addressed: Stretch decides whether someone should act on it
+  if (ev.kind === "msg" && HUMANS.has(ev.from.toLowerCase()) && !to && !/@\w/.test(ev.text) && ev.text.trim().length > 3 && !ev.meta?.history) {
+    void (async () => {
+      const { evs, vms, names } = await roomAgents(r)
+      const recent = evs.slice(-12).map((e) => `${e.from}: ${e.text}`)
+      const d = await dispatch(ev.from, ev.text, names.map((n) => ({ name: n, busy: false })), recent)
+      const say = async (text: string) => { const x = await room(r).append({ room: r, kind: "msg", from: "stretch", text, ts: Date.now(), meta: { to: ev.from, triage: { act: "show", why: d.why } } }); fanout(r, x) }
+      if (d.action === "answer") {
+        const hist = evs.map((e) => `#${e.seq} ${e.from}: ${e.text}`)
+        const a = await answerFromRoom(ev.text, hist)
+        const reply = await room(r).append({ room: r, kind: "msg", from: "casper", text: a, ts: Date.now(), meta: { to: ev.from, replyTo: out.seq, triage: { act: "show", why: "answer" } } })
+        fanout(r, reply)
+      } else if (d.action === "wake" && d.agent && names.includes(d.agent.toLowerCase())) {
+        const n = d.agent.toLowerCase()
+        if (deliver({ vm: vms.get(n), dir: localDir(r, n) }, ev.from, d.task ? `${ev.text}\n(Stretch: ${d.task})` : ev.text, false)) {
+          await say(`Handing this to ${n}.`)
+          const t = await room(r).append({ room: r, kind: "msg", from: "casper", text: `${n} is on it.`, ts: Date.now(), meta: { typing: n, triage: { act: "silent", why: "typing" } } }); fanout(r, t)
+        }
+      } else if (d.action === "summon" && d.task) {
+        await autoSummon(r, d.task, ev.from)
+      }
+    })().catch((e) => console.warn("dispatch", e))
   }
   // a person asking @casper gets an answer from the room's own history
   if (ev.kind === "msg" && HUMANS.has(ev.from.toLowerCase()) && /@casper\b/i.test(ev.text)) {
@@ -152,12 +199,27 @@ app.post("/room/:room/meeting", async (c) => {
   const transcript = str(b.transcript, "transcript", 40000)
   const by = typeof b.by === "string" ? b.by : "someone"
   await listed(r)
-  const heard = await room(r).append({ room: r, kind: "msg", from: by, text: `Shared a call transcript (${transcript.split(/\s+/).length} words).`, ts: Date.now(), meta: { transcript: transcript.slice(0, 4000) } })
+  const source = typeof b.source === "string" && b.source ? b.source : "call"
+  const heard = await room(r).append({ room: r, kind: "msg", from: by, text: `Shared the ${source} recording (${transcript.split(/\s+/).length} words). Casper is turning it into tasks.`, ts: Date.now(), meta: { transcript: transcript.slice(0, 4000), source } })
   fanout(r, heard)
   const { summary, tasks } = await meetingToTasks(transcript)
   if (!tasks.length) throw new HTTPError(502, "Couldn't find any agreed tasks in that call.")
-  const out = await room(r).append({ room: r, kind: "msg", from: "casper", text: `From the call: ${summary} ${tasks.length} tasks are open. Claim one.`, ts: Date.now(), meta: { tasks, triage: { act: "show", why: "tasks from the call" } } })
+  const out = await room(r).append({ room: r, kind: "msg", from: "casper", text: `From the call: ${summary} ${tasks.length} tasks are open.`, ts: Date.now(), meta: { tasks, triage: { act: "show", why: "tasks from the call" } } })
   fanout(r, out)
+  // Stretch puts agents on the work right away: existing agents get woken, the rest get a new agent on its own computer
+  if (b.auto !== false) void (async () => {
+    const { vms, names } = await roomAgents(r)
+    const plan = await assign(tasks, names)
+    let started = 0
+    for (const p of plan) {
+      if (p.agent === "person") continue
+      const task = tasks.find((t) => t.title === p.task)?.title ?? p.task
+      const n = p.agent?.toLowerCase()
+      if (n && names.includes(n) && deliver({ vm: vms.get(n), dir: localDir(r, n) }, by, `New task from the call, please claim it: "${task}"`, false)) {
+        const x = await room(r).append({ room: r, kind: "msg", from: "stretch", text: `${n}, you're up for "${task}".`, ts: Date.now(), meta: { to: n, triage: { act: "show", why: "dispatch" } } }); fanout(r, x)
+      } else if (started < AUTO_MAX_NEW) { started++; void autoSummon(r, `Claim and do the task "${task}" from the call. Call summary: ${summary}`, by) }
+    }
+  })().catch((e) => console.warn("assign", e))
   return c.json(out)
 })
 
@@ -211,7 +273,7 @@ app.post("/room/:room/summon", async (c) => {
     const hello = await room(r).append({ room: r, kind: "msg", from: "casper", text: `${by} summoned ${name} onto its own boat.dev computer. It will claim a task, post progress, and ring the bell before it pushes.`, ts: Date.now(), meta: { summoned: name, triage: { act: "show", why: "summon" } } })
     fanout(r, hello)
     summonOnBoat({ room: r, name, task, by, approver, hub: "", publicHub: process.env.HUB_PUBLIC_URL ?? "" }, say)
-      .catch((e) => say(`Couldn't start ${name}'s computer: ${(e as Error).message}`))
+      .catch((e) => say(`I couldn't get my computer ready (${(e as Error).message}). Summon me again to retry.`))
     return c.json({ ok: true, where: "boat" })
   }
   const res = summon({ room: r, name, task, by, hub: `http://127.0.0.1:${process.env.PORT ?? 8790}`, approver })
@@ -284,10 +346,31 @@ app.get("/wing", async (c) => {
     bells: bells.sort((a, b) => b.ts - a.ts),
     computers: [...computers.values()].sort((a, b) => b.ts - a.ts),
     library: library.sort((a, b) => b.ts - a.ts),
-    usage: { ai: usage, totals: { agentMessages: [...agents.values()].reduce((n, a) => n + a.total, 0), reached: [...agents.values()].reduce((n, a) => n + a.reached, 0), quiet: [...agents.values()].reduce((n, a) => n + a.quiet, 0), relay: [...agents.values()].reduce((n, a) => n + a.relay, 0) } },
+    usage: { ai: usage, jev: jevUsage, totals: { agentMessages: [...agents.values()].reduce((n, a) => n + a.total, 0), reached: [...agents.values()].reduce((n, a) => n + a.reached, 0), quiet: [...agents.values()].reduce((n, a) => n + a.quiet, 0), relay: [...agents.values()].reduce((n, a) => n + a.relay, 0) } },
   }
   wingCache = { at: Date.now(), body }
   return c.json(body)
+})
+
+/* a grant to watch a room straight from its Terse actor (the browser connects to Terse, not to this hub) */
+app.get("/room/:room/grant", async (c) => {
+  const r = c.req.param("room")
+  if (!ROOM_ID.test(r)) throw new HTTPError(400, "Bad room name.")
+  const g = await actors.Room.prepareWebsocket({ actorId: `room.${r}`, metadata: { who: String(c.req.query("who") ?? "someone").slice(0, 40), since: Number(c.req.query("since") ?? 0) || 0 } } as never)
+  c.header("cache-control", "no-store")
+  return c.json(g)
+})
+
+app.post("/room/:room/reset", async (c) => {
+  const r = c.req.param("room"), b = await body(c)
+  // stop this room's agents first, so nothing posts into the fresh room
+  void (async () => {
+    const BOATBIN = process.env.BOAT_BIN ?? `${process.env.HOME}/.ascii/bin/boat`
+    const out = await new Response(Bun.spawn([BOATBIN, "list", "--no-update", "--json"], { stdout: "pipe" }).stdout).text()
+    try { for (const sb of (JSON.parse(out).sandboxes ?? []) as { id: string; name?: string }[]) if (String(sb.name ?? "").startsWith(`casper-${r}-`)) Bun.spawn([BOATBIN, "delete", "--no-update", sb.id]) } catch { /* list failed */ }
+  })()
+  reserved.delete(r)
+  return c.json(await room(r).reset(typeof b.topic === "string" ? b.topic : "Ship Hush today and announce it."))
 })
 
 app.get("/room/:room/events", async (c) => c.json(await room(c.req.param("room")).since(Number(c.req.query("since") ?? 0) || 0)))

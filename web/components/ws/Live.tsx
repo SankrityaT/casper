@@ -11,6 +11,12 @@ import { HUB, me, kindFor, answer, derive, hookSetup, hush, liveMode, mcpCommand
    Agents argue on Relay; only what needs a person reaches the room. Hush holds an agent's lines without stopping its work. */
 
 const ME_DEFAULT = "sankritya";
+/* agents that joined at runtime (summoned, or someone's own) get a seat in the cast so bubbles show them properly */
+function meet(name: string) {
+  const k = name.toLowerCase().split("#")[0] as Id;
+  if (P[k] || ["sankritya", "kinjal", "you"].includes(k)) return;
+  (P as Record<string, (typeof P)[Id]>)[k] = { name: k.charAt(0).toUpperCase() + k.slice(1), kind: kindFor(k) as never, sub: "agent" } as (typeof P)[Id];
+}
 const idOf = (name: string): Id | null => {
   const k = name.toLowerCase().split("#")[0] as Id;
   return P[k] ? k : null;
@@ -128,9 +134,65 @@ function Desktop({ url, agent, vm }: { url: string; agent: string; vm: string })
   );
 }
 
+/* A call, right in the room: the browser transcribes as you talk; End call turns what you agreed into tasks. */
+type SR = { continuous: boolean; interimResults: boolean; lang: string; start: () => void; stop: () => void; onresult: (e: { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void; onend: () => void; onerror: (e: { error: string }) => void };
+function LiveCall({ room, onDone }: { room: string; onDone: () => void }) {
+  const [lines, setLines] = useState<string[]>([]);
+  const [interim, setInterim] = useState("");
+  const [on, setOn] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [secs, setSecs] = useState(0);
+  const rec = useRef<SR | null>(null);
+  const want = useRef(false);
+  useEffect(() => { if (!on) return; const t = setInterval(() => setSecs((x) => x + 1), 1000); return () => clearInterval(t); }, [on]);
+  const start = () => {
+    const C = (window as unknown as { SpeechRecognition?: new () => SR; webkitSpeechRecognition?: new () => SR }).SpeechRecognition ?? (window as unknown as { webkitSpeechRecognition?: new () => SR }).webkitSpeechRecognition;
+    if (!C) { setErr("This browser can't transcribe. Use Chrome, or paste the notes below."); return; }
+    const r = new C(); r.continuous = true; r.interimResults = true; r.lang = "en-US";
+    r.onresult = (e) => {
+      let tmp = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript.trim();
+        if (e.results[i].isFinal) { if (t) setLines((x) => [...x, t]); } else tmp += t + " ";
+      }
+      setInterim(tmp);
+    };
+    r.onerror = (e) => { if (e.error !== "no-speech") setErr(`Microphone: ${e.error}`); };
+    r.onend = () => { if (want.current) try { r.start(); } catch { /* restarting */ } };
+    rec.current = r; want.current = true; r.start(); setOn(true); setErr("");
+  };
+  const end = async () => {
+    want.current = false; rec.current?.stop(); setOn(false);
+    const text = [...lines, interim].join("\n").trim();
+    if (!text) { setErr("Nothing was said yet."); return; }
+    setBusy(true);
+    try { await shareCall(room, text, me()); onDone(); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+  };
+  const mm = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+  return (
+    <div className="lv-call">
+      <div className="lv-call-h">
+        <span className={`lv-call-dot ${on ? "on" : ""}`} />
+        <b>{on ? `On a call · ${mm}` : busy ? "Turning the call into tasks…" : "Start a call in this room"}</b>
+        <span className="lv-grow" />
+        {!on && !busy && <button className="pill white" onClick={start}>Start call</button>}
+        {on && <button className="pill white" onClick={end}>End call</button>}
+        <button className="pill" onClick={() => { want.current = false; rec.current?.stop(); onDone(); }}>Close</button>
+      </div>
+      <div className="lv-call-body">
+        {lines.length === 0 && !interim && <small>{on ? "Listening. Talk about what to build; Casper writes it down." : "Everyone in the room sees the transcript live. When you end the call, Casper turns what you agreed into tasks, and Stretch puts agents on them."}</small>}
+        {lines.map((l, i) => <p key={i}>{l}</p>)}
+        {interim && <p className="interim">{interim}</p>}
+      </div>
+      {err && <small className="kerr">{err}</small>}
+    </div>
+  );
+}
+
 export default function LiveRoom({ room, onSummon }: { room: string; onSummon?: () => void }) {
   const s = useLive(room);
-  const d = useMemo(() => derive(s.evs), [s.evs]);
+  const d = useMemo(() => { s.evs.forEach((e) => meet(e.from)); return derive(s.evs); }, [s.evs]);
   const [back, setBack] = useState(false);
   const [draft, setDraft] = useState("");
   const [steer, setSteer] = useState(false);
@@ -158,7 +220,7 @@ export default function LiveRoom({ room, onSummon }: { room: string; onSummon?: 
   const digestAt = new Map(d.digests.map((g) => [g.at, g]));
   const empty = s.evs.every((e) => e.from === "casper" && !e.meta?.tasks);
   const titleOf = (task: string) => d.tasks.find((t) => t.id === task)?.title ?? task;
-  const [panel, setPanel] = useState<null | "call" | "connect">(null);
+  const [panel, setPanel] = useState<null | "call" | "connect" | "live">(null);
   const [workers, setWorkers] = useState<{ name: string; running: boolean }[]>([]);
   useEffect(() => {
     if (!HUB.url) return;
@@ -169,6 +231,7 @@ export default function LiveRoom({ room, onSummon }: { room: string; onSummon?: 
   const [call, setCall] = useState("");
   const [callBusy, setCallBusy] = useState(false);
   const [callErr, setCallErr] = useState("");
+  const [callSrc, setCallSrc] = useState("Zoom");
   const [agentName, setAgentName] = useState("");
   const [copied, setCopied] = useState(false);
   const here = (() => {
@@ -182,7 +245,7 @@ export default function LiveRoom({ room, onSummon }: { room: string; onSummon?: 
   ];
   const sendCall = async () => {
     setCallBusy(true); setCallErr("");
-    try { await shareCall(room, call, me()); setCall(""); setPanel(null); }
+    try { await shareCall(room, call, me(), callSrc); setCall(""); setPanel(null); }
     catch (e) { setCallErr((e as Error).message); } finally { setCallBusy(false); }
   };
   const status = s.status === "live" ? "Live" : s.status === "sim" ? "Simulated run" : s.status === "offline" ? "Reconnecting…" : "Connecting…";
@@ -193,9 +256,9 @@ export default function LiveRoom({ room, onSummon }: { room: string; onSummon?: 
         <div className="lv-blank">
           <div className="lv-blank-fig"><Agent kind="casper" mood="happy" className="size-full" /></div>
           <h2>#{room} is quiet</h2>
-          <p>{(() => { const t = s.evs.find((e) => e.from === "casper")?.text.replace(/^Welcome to #[\w.-]+\.\s*/, "").trim() || "Nothing has happened here yet"; return /[.!?]$/.test(t) ? t : `${t}.`; })()} Bring the work in: agents join when you summon or connect them, and they only answer when you @ them.</p>
+          <p>{(() => { const t = s.evs.find((e) => e.from === "casper")?.text.replace(/^Welcome to #[\w.-]+\.\s*/, "").trim() || "Nothing has happened here yet"; return /[.!?]$/.test(t) ? t : `${t}.`; })()} Start a call and Stretch puts agents to work on what you agree, each on its own computer. They report back here, and only what matters reaches you.</p>
           <div className="lv-blank-acts">
-            <button onClick={() => setPanel("call")}><b>Share a call</b><small>Paste a transcript. Casper turns what you agreed into tasks.</small></button>
+            <button className="primary" onClick={() => setPanel("live")}><b>Start a call</b><small>Talk it through here. Casper writes it down and turns it into tasks.</small></button>
             <button onClick={() => onSummon?.()}><b>Summon an agent</b><small>A Claude Code agent on its own boat.dev computer, working on a branch.</small></button>
             <button onClick={() => setPanel("connect")}><b>Connect your agent</b><small>One command joins your own Claude Code or Codex to this room.</small></button>
           </div>
@@ -207,6 +270,7 @@ export default function LiveRoom({ room, onSummon }: { room: string; onSummon?: 
           <b>{d.agentTotal}</b> agent messages · <b>{d.reached}</b> reached you{d.quiet ? <> · Stretch kept <b>{d.quiet}</b> quiet</> : null}
         </span>
         <span className="lv-grow" />
+        <button className={`lv-hush ${panel === "live" ? "on" : ""}`} onClick={() => setPanel(panel === "live" ? null : "live")} title="Start a call in this room">Start a call</button>
         <button className={`lv-hush ${panel === "call" ? "on" : ""}`} onClick={() => setPanel(panel === "call" ? null : "call")} title="Paste a call transcript; Casper turns what you agreed into tasks">
           <Ic d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2" s={13} />Share a call</button>
         <button className={`lv-hush ${panel === "connect" ? "on" : ""}`} onClick={() => setPanel(panel === "connect" ? null : "connect")} title="Bring your own agent into this room">
@@ -229,10 +293,12 @@ export default function LiveRoom({ room, onSummon }: { room: string; onSummon?: 
           ))}
         </div>
       )}
+      {panel === "live" && <LiveCall room={room} onDone={() => setPanel(null)} />}
       {panel === "call" && (
         <div className="lv-panel">
           <b>Share a call</b>
-          <small>Paste the transcript (Zoom, Meet, Granola, or notes). Casper lists what you agreed as tasks, and the agents claim them.</small>
+          <small>Paste the transcript. Casper lists what you agreed as tasks, and Stretch puts agents on them.</small>
+          <div className="chips">{["Zoom", "Google Meet", "Granola", "notes"].map((x) => <button key={x} className={`chip ${callSrc === x ? "on" : ""}`} onClick={() => setCallSrc(x)}>{x}</button>)}</div>
           <textarea value={call} onChange={(e) => setCall(e.target.value)} rows={6} placeholder="Sankritya: the last feature today is Hush…" aria-label="Call transcript" />
           {callErr && <small className="kerr">{callErr}</small>}
           <div className="row" style={{ gap: 8 }}>
@@ -316,6 +382,7 @@ export default function LiveRoom({ room, onSummon }: { room: string; onSummon?: 
               </Bubble>
             );
           }
+          meet(e.from);
           const who = idOf(e.from) ?? "casper";
           const to = e.meta?.to ? idOf(String(e.meta.to)) ?? undefined : undefined;
           const steered = e.meta?.mode === "steer";
@@ -334,6 +401,9 @@ export default function LiveRoom({ room, onSummon }: { room: string; onSummon?: 
         );
       })}
 
+      {!empty && d.typing.map((t) => (
+        <div key={t} className="lv-typing"><Face who={t} size={22} /><span><b>{nameOf(t)}</b> is working on a reply</span><i /><i /><i /></div>
+      ))}
       {!empty && <div className="lv-back">
         <button className="lv-back-b" onClick={() => setBack(!back)}>
           <Ic d={back ? "M6 15l6-6 6 6" : "M6 9l6 6 6-6"} s={14} />{back ? "Hide" : "Show"} the agents’ backchannel on Relay ({d.backchannel.length})

@@ -65,6 +65,9 @@ function hubUrl(): string {
     const q = new URLSearchParams(location.search).get("hub");
     if (q === "off") localStorage.removeItem("casper.hub");
     else if (q && /^https?:\/\//.test(q)) localStorage.setItem("casper.hub", q);
+    const env = process.env.NEXT_PUBLIC_HUB_URL?.replace(/\/$/, "");
+    if (q && /^https?:\/\//.test(q)) return q.replace(/\/$/, "");
+    if (env) { localStorage.removeItem("casper.hub"); return env; } // the deployed hub wins over a stale saved one
     const saved = localStorage.getItem("casper.hub");
     if (saved) return saved.replace(/\/$/, "");
   }
@@ -74,14 +77,26 @@ export const HUB = { get url() { return hubUrl(); } };
 
 /* ---------- sources ---------- */
 function connectHub(room: string) {
+  // watch the room straight from its Terse actor: the hub only hands out a short-lived grant
   let ws: WebSocket | null = null, dead = false, wait = 500;
-  const open = () => {
+  const open = async () => {
     if (dead) return;
-    const url = `${HUB.url.replace(/^http/, "ws")}/room/${encodeURIComponent(room)}/socket?since=${state(room).lastSeq}`;
+    let url = "";
+    try {
+      const g = await fetch(`${HUB.url}/room/${encodeURIComponent(room)}/grant?since=${state(room).lastSeq}`, { cache: "no-store" }).then((r) => r.json());
+      url = g.websocketUrl;
+    } catch { /* fall back to the hub's own socket */ }
+    if (!url) url = `${HUB.url.replace(/^http/, "ws")}/room/${encodeURIComponent(room)}/socket?since=${state(room).lastSeq}`;
     ws = new WebSocket(url);
     ws.onopen = () => { wait = 500; setStatus(room, "live"); };
     ws.onmessage = (m) => {
-      try { const d = JSON.parse(String(m.data)); ingest(room, Array.isArray(d) ? d : Array.isArray(d?.events) ? d.events : [d]); } catch { /* ignore a bad frame */ }
+      try {
+        const d = JSON.parse(String(m.data));
+        if (d?.type === "event") ingest(room, [d.event]);
+        else if (d?.type === "events") ingest(room, d.events);
+        else if (d?.type === "state" || d?.type === "state_update") { /* actor state, not needed here */ }
+        else ingest(room, Array.isArray(d) ? d : Array.isArray(d?.events) ? d.events : [d]);
+      } catch { /* ignore a bad frame */ }
     };
     ws.onclose = () => { if (dead) return; setStatus(room, "offline"); setTimeout(open, (wait = Math.min(wait * 2, 8000))); };
   };
@@ -168,6 +183,7 @@ export type Derived = {
   digests: { at: number; who: string; evs: LiveEv[] }[];
   asks: Record<string, { ev: LiveEv; done?: { yes: boolean; by: string } }>;
   tasks: { id: string; title: string; why?: string }[]; // the latest task cards (from a call)
+  typing: string[];                // agents someone just woke, until they speak
   quiet: number;                   // agent messages Stretch kept out of the room
   agentTotal: number;              // every agent message, both channels
   reached: number;                 // agent messages that reached a human
@@ -175,9 +191,11 @@ export type Derived = {
 const HUMANS = new Set(["sankritya", "kinjal", "you"]);
 export function derive(evs: LiveEv[]): Derived {
   const claimSeen = new Set<string>();
-  const d: Derived = { visible: [], backchannel: [], claims: {}, hushed: new Set(), held: {}, digests: [], asks: {}, tasks: [], quiet: 0, agentTotal: 0, reached: 0 };
+  const d: Derived = { visible: [], backchannel: [], claims: {}, hushed: new Set(), held: {}, digests: [], asks: {}, tasks: [], typing: [], quiet: 0, agentTotal: 0, reached: 0 };
   for (const e of evs) {
     const from = e.from.toLowerCase();
+    if (typeof e.meta?.typing === "string") { const t = e.meta.typing.toLowerCase(); if (!d.typing.includes(t)) d.typing = [...d.typing, t]; continue; }
+    if (d.typing.includes(from) && e.kind !== "computer") d.typing = d.typing.filter((x) => x !== from);
     const agent = !HUMANS.has(from);
     if (e.kind === "hush") {
       const t = String(e.meta?.target ?? "").toLowerCase();
@@ -304,12 +322,12 @@ export async function createRoom(slug: string, topic: string, by: string): Promi
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "Couldn't create the room.");
   return r.json();
 }
-export async function shareCall(room: string, transcript: string, by: string) {
+export async function shareCall(room: string, transcript: string, by: string, source = "call") {
   if (!HUB.url) {
     local(room, { kind: "msg", from: "casper", text: "From the call: three tasks are open. Claim one.", meta: { tasks: [{ id: "t1", title: "Build the API" }, { id: "t2", title: "Build the UI" }, { id: "t3", title: "Draft the launch post" }] } });
     return;
   }
-  const r = await fetch(`${HUB.url}/room/${encodeURIComponent(room)}/meeting`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ transcript, by }) });
+  const r = await fetch(`${HUB.url}/room/${encodeURIComponent(room)}/meeting`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ transcript, by, source }) });
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "Couldn't read that call.");
 }
 export const mcpCommand = (room: string, agent: string) =>
