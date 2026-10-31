@@ -16,6 +16,8 @@ import NewRoom from "@/components/ws/NewRoom";
 import Summon, { type Summoned } from "@/components/ws/Summon";
 import { SourceCtx } from "@/components/ws/SourcePeek";
 import { BellPage, AgentsPage, LibraryPage, SettingsPage, UsagePage } from "@/components/ws/Pages";
+import LiveRoom from "@/components/ws/Live";
+const LIVE = "autopay";
 
 type Page = "room" | "bell" | "agents" | "library" | "settings" | "usage";
 type Post = { room: string; who: Id; text: string; thread?: number; note?: string; att?: Att[] };
@@ -231,7 +233,7 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
       setTimeout(() => { setPosts((p) => [...p, { room, who: id, text: REPLY[id]!(t), thread, att: REPLY_ATT[id] }]); setReplying(null); }, 1700);
     }
   };
-  const openRoom = (r: string) => { setRoom(r); setPage("room"); setThreadOf(null); setFindThread(false); };
+  const openRoom = (r: string) => { setRoom(r); setPage("room"); setThreadOf(null); setFindThread(false); if (r === LIVE) onView("chat"); };
   const openThread = (i: number) => { setThreadOf(i); setInsp(true); };
   // forward a message into another room (or a DM, which we show as a note here)
   const forward = (t: Target, text: string) => {
@@ -462,6 +464,8 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
                       </Bubble>
                     ))}
                   </>
+                ) : room === LIVE ? (
+                  <LiveRoom room={LIVE} />
                 ) : (
                   <>
                     <div className="day">{ROOMS[room].msgs[0]?.at === "now" ? "Today" : "Earlier"}</div>
@@ -483,7 +487,7 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
             </div>
             <div className="compose">
               <TypingBar who={replying && threadOf === null ? replying : !done && room === "autopay-launch" && cur >= 0 && cur < SCRIPT.length - 1 ? SCRIPT[cur + 1].who : draft ? "sankritya" : null} />
-              <Composer value={draft} set={setDraft} onSend={(t, a) => send(t, undefined, a)} placeholder={`Message #${room}, @ an agent to get an answer`} />
+              {room !== LIVE && <Composer value={draft} set={setDraft} onSend={(t, a) => send(t, undefined, a)} placeholder={`Message #${room}, @ an agent to get an answer`} />}
             </div>
           </section>
 
