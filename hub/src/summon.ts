@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process"
-import { mkdirSync, writeFileSync, existsSync, openSync } from "node:fs"
+import { mkdirSync, writeFileSync, existsSync, openSync, readFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 
 /* Summon: start a real Claude Code agent for a room, on the hub's machine, in its own git worktree of the repo.
@@ -97,6 +97,7 @@ export async function summonOnBoat(i: SummonInput & { publicHub: string }, say: 
   const branch = `agent/${i.name}-${Date.now().toString(36)}`
   const keys = (process.env.ANTHROPIC_API_KEYS ?? process.env.ANTHROPIC_API_KEY ?? "").split(",").map((k) => k.trim()).filter(Boolean)
   const gh = process.env.CASPER_GITHUB_TOKEN ?? ""
+  pushText(vm, "/home/user/.casper", { "push-gate.sh": readFileSync(resolve(REPO, "hub/hooks/push-gate.sh"), "utf8") })
   pushText(vm, "/home/user/.casper-keys", { anthropic: keys[Math.floor(Math.random() * keys.length)] ?? "", ...(gh ? { github: gh } : {}) })
   boatExec(vm, [
     "set -e",
@@ -106,7 +107,7 @@ export async function summonOnBoat(i: SummonInput & { publicHub: string }, say: 
     "git remote add origin https://github.com/SankrityaT/casper.git 2>/dev/null || git remote set-url origin https://github.com/SankrityaT/casper.git",
     `git config --global user.name ${i.name}; git config --global user.email ${i.name}@casper.agents`,
     `git config --global credential.helper '!f() { echo username=x-access-token; echo password=$(cat ~/.casper-keys/github 2>/dev/null); }; f'`,
-    `mkdir -p ~/.casper && curl -fsSL ${i.publicHub}/hooks/push-gate.sh -o ~/.casper/push-gate.sh && chmod +x ~/.casper/push-gate.sh`,
+    `chmod +x ~/.casper/push-gate.sh`,
     `export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:/usr/local/bin:$PATH"`,
     `claude mcp remove casper -s user >/dev/null 2>&1; claude mcp add --transport http -s user casper '${i.publicHub}/mcp?room=${i.room}&agent=${i.name}'`,
     `test -x ~/.casper/push-gate.sh`,

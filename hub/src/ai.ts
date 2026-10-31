@@ -58,3 +58,27 @@ export async function answerFromRoom(question: string, history: string[]): Promi
     `Room history (oldest first):\n${history.slice(-250).join("\n")}\n\nQuestion: ${question}`, 30000)
   return out?.answer?.trim() || "I couldn't find that in this room."
 }
+
+export type Dispatch = { action: "answer" | "wake" | "summon" | "none"; agent?: string; task?: string; why: string }
+/** Stretch reads a person's message that wasn't addressed to anyone and decides who should act on it. */
+export async function dispatch(from: string, text: string, agents: { name: string; busy: boolean }[], recent: string[]): Promise<Dispatch> {
+  const out = await chatJson<Partial<Dispatch>>(
+    "gpt-5.4-mini",
+    `You are Stretch, the dispatcher of a team room where people and AI coding agents work together. A person just posted a message without addressing anyone. Decide what should happen.
+Agents available in this room (name, busy?): ${agents.map((a) => `${a.name}${a.busy ? " (busy)" : ""}`).join(", ") || "none yet"}.
+Return JSON {"action": "answer"|"wake"|"summon"|"none", "agent": name or null, "task": what the agent should do, in one or two sentences, or null, "why": max 10 words}.
+answer: it's a question about the room's history or status; Casper answers. wake: an existing idle agent should do it. summon: it's real work (code, docs, research, a launch) and no idle agent fits; a new agent gets its own computer. none: chit-chat or nothing to do.`,
+    `Recent room lines:\n${recent.slice(-12).join("\n")}\n\n${from}: ${text}`, 12000)
+  const action = (["answer", "wake", "summon", "none"] as const).includes(out?.action as never) ? (out!.action as Dispatch["action"]) : "none"
+  return { action, agent: out?.agent ?? undefined, task: out?.task ?? undefined, why: String(out?.why ?? "") }
+}
+
+/** Stretch splits the tasks from a call between the room's agents and new ones. */
+export async function assign(tasks: { id: string; title: string; owner_hint?: string }[], agents: string[]): Promise<{ task: string; agent: string | null }[]> {
+  const out = await chatJson<{ plan?: { task?: string; agent?: string | null }[] }>(
+    "gpt-5.4-mini",
+    `You are Stretch, the dispatcher. Assign each task to an existing agent (by name) or to null (a new agent will be started for it). Prefer existing agents; never give one agent more than one task. Tasks that only a person can do (decisions, approvals, calls) get "person".
+Return JSON {"plan":[{"task": exact title, "agent": name | null | "person"}]}.`,
+    `Agents: ${agents.join(", ") || "none"}\nTasks:\n${tasks.map((t) => `- ${t.title} (${t.owner_hint ?? "work"})`).join("\n")}`, 12000)
+  return (out?.plan ?? []).filter((p) => p.task).map((p) => ({ task: String(p.task), agent: p.agent ?? null }))
+}

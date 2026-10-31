@@ -4,7 +4,7 @@ import { createBunWebSocket } from "hono/bun"
 import type { ServerWebSocket } from "bun"
 import { actors } from "./generated-cloud/index.js"
 import type { RoomEvent } from "./src/actors.ts"
-import { answerFromRoom, meetingToTasks, triage, usage } from "./src/ai.ts"
+import { answerFromRoom, assign, dispatch, meetingToTasks, triage, usage } from "./src/ai.ts"
 import { seal } from "./src/seal.ts"
 import { summon, stop, status, summonOnBoat, boatAgents, deliver, localDir } from "./src/summon.ts"
 
@@ -36,6 +36,27 @@ const wing = actors.Wing.get("wing.main")
 const HUMANS = new Set(["sankritya", "kinjal", "you"])
 const known = new Set<string>()
 const listed = async (r: string) => { if (known.has(r)) return; await wing.ensure(r, "A room agents started"); known.add(r) }
+
+/* proactive work: Stretch dispatches without anyone summoning or @-ing */
+const NAMES = ["salem", "luna", "gourd", "nox", "taper", "boo", "hex", "mort"]
+async function roomAgents(r: string) {
+  const evs = await room(r).since(0, 2000)
+  const vms = new Map<string, string>()
+  for (const e of evs) if (e.kind === "computer" && typeof e.meta?.vm === "string" && e.meta?.backend === "boat") vms.set(String(e.meta?.agent ?? e.from).toLowerCase(), String(e.meta.vm))
+  const names = [...new Set(evs.map((e) => e.from.toLowerCase().split("#")[0]).filter((n) => !HUMANS.has(n) && n !== "casper" && n !== "stretch"))]
+  return { evs, vms, names }
+}
+async function autoSummon(r: string, task: string, by: string) {
+  const { names } = await roomAgents(r)
+  const name = NAMES.find((n) => !names.includes(n)) ?? `agent${Date.now().toString(36).slice(-3)}`
+  const say = async (text: string, meta?: Record<string, unknown>) => { const ev = await room(r).append({ room: r, kind: "computer", from: name, text, ts: Date.now(), meta: { agent: name, ...(meta ?? {}) } }); fanout(r, ev) }
+  const hello = await room(r).append({ room: r, kind: "msg", from: "stretch", text: `Starting ${name} on its own computer for: ${task}`, ts: Date.now(), meta: { triage: { act: "show", why: "dispatch" } } })
+  fanout(r, hello)
+  summonOnBoat({ room: r, name, task, by, approver: HUMANS.has(by) ? by : "sankritya", hub: "", publicHub: process.env.HUB_PUBLIC_URL ?? "" }, say)
+    .catch((e) => say(`I couldn't get my computer ready (${(e as Error).message}).`))
+  return name
+}
+const AUTO_MAX_NEW = Number(process.env.CASPER_AUTO_MAX_NEW ?? 2)
 
 // who is watching which room
 const watchers = new Map<string, Set<{ send: (s: string) => void }>>()
@@ -109,6 +130,29 @@ app.post("/room/:room/post", async (c) => {
       }
     })().catch((e) => console.warn("deliver", e))
   }
+  // nobody addressed: Stretch decides whether someone should act on it
+  if (ev.kind === "msg" && HUMANS.has(ev.from.toLowerCase()) && !to && !/@\w/.test(ev.text) && ev.text.trim().length > 3) {
+    void (async () => {
+      const { evs, vms, names } = await roomAgents(r)
+      const recent = evs.slice(-12).map((e) => `${e.from}: ${e.text}`)
+      const d = await dispatch(ev.from, ev.text, names.map((n) => ({ name: n, busy: false })), recent)
+      const say = async (text: string) => { const x = await room(r).append({ room: r, kind: "msg", from: "stretch", text, ts: Date.now(), meta: { to: ev.from, triage: { act: "show", why: d.why } } }); fanout(r, x) }
+      if (d.action === "answer") {
+        const hist = evs.map((e) => `#${e.seq} ${e.from}: ${e.text}`)
+        const a = await answerFromRoom(ev.text, hist)
+        const reply = await room(r).append({ room: r, kind: "msg", from: "casper", text: a, ts: Date.now(), meta: { to: ev.from, replyTo: out.seq, triage: { act: "show", why: "answer" } } })
+        fanout(r, reply)
+      } else if (d.action === "wake" && d.agent && names.includes(d.agent.toLowerCase())) {
+        const n = d.agent.toLowerCase()
+        if (deliver({ vm: vms.get(n), dir: localDir(r, n) }, ev.from, d.task ? `${ev.text}\n(Stretch: ${d.task})` : ev.text, false)) {
+          await say(`Handing this to ${n}.`)
+          const t = await room(r).append({ room: r, kind: "msg", from: "casper", text: `${n} is on it.`, ts: Date.now(), meta: { typing: n, triage: { act: "silent", why: "typing" } } }); fanout(r, t)
+        }
+      } else if (d.action === "summon" && d.task) {
+        await autoSummon(r, d.task, ev.from)
+      }
+    })().catch((e) => console.warn("dispatch", e))
+  }
   // a person asking @casper gets an answer from the room's own history
   if (ev.kind === "msg" && HUMANS.has(ev.from.toLowerCase()) && /@casper\b/i.test(ev.text)) {
     void (async () => {
@@ -156,8 +200,22 @@ app.post("/room/:room/meeting", async (c) => {
   fanout(r, heard)
   const { summary, tasks } = await meetingToTasks(transcript)
   if (!tasks.length) throw new HTTPError(502, "Couldn't find any agreed tasks in that call.")
-  const out = await room(r).append({ room: r, kind: "msg", from: "casper", text: `From the call: ${summary} ${tasks.length} tasks are open. Claim one.`, ts: Date.now(), meta: { tasks, triage: { act: "show", why: "tasks from the call" } } })
+  const out = await room(r).append({ room: r, kind: "msg", from: "casper", text: `From the call: ${summary} ${tasks.length} tasks are open.`, ts: Date.now(), meta: { tasks, triage: { act: "show", why: "tasks from the call" } } })
   fanout(r, out)
+  // Stretch puts agents on the work right away: existing agents get woken, the rest get a new agent on its own computer
+  if (b.auto !== false) void (async () => {
+    const { vms, names } = await roomAgents(r)
+    const plan = await assign(tasks, names)
+    let started = 0
+    for (const p of plan) {
+      if (p.agent === "person") continue
+      const task = tasks.find((t) => t.title === p.task)?.title ?? p.task
+      const n = p.agent?.toLowerCase()
+      if (n && names.includes(n) && deliver({ vm: vms.get(n), dir: localDir(r, n) }, by, `New task from the call, please claim it: "${task}"`, false)) {
+        const x = await room(r).append({ room: r, kind: "msg", from: "stretch", text: `${n}, you're up for "${task}".`, ts: Date.now(), meta: { to: n, triage: { act: "show", why: "dispatch" } } }); fanout(r, x)
+      } else if (started < AUTO_MAX_NEW) { started++; await autoSummon(r, `Claim and do the task "${task}" from the call. Call summary: ${summary}`, by) }
+    }
+  })().catch((e) => console.warn("assign", e))
   return c.json(out)
 })
 
