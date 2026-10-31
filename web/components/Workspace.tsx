@@ -250,7 +250,7 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
       if (dead) return;
       rs.forEach((r) => { if (!ROOMS[r.slug]) ROOMS[r.slug] = { topic: r.topic, msgs: [], cards: [] }; });
       setHubRooms(rs.map((r) => r.slug));
-      if (rs.length) setRoom((cur) => (rs.some((r) => r.slug === cur) ? cur : rs.some((r) => r.slug === "playground") ? "playground" : rs[0].slug));
+      if (rs.length) setRoom((cur) => (rs.some((r) => r.slug === cur) ? cur : rs.some((r) => r.slug === "lab") ? "lab" : rs[0].slug));
     }).catch(() => {});
     load();
     const t = setInterval(load, 10000);
