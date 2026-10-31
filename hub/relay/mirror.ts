@@ -6,7 +6,7 @@
 //
 // Two sources, one cursor:
 //  - live: SDK observer stream (relay.addListener) over /v1/ws
-//  - poll: REST GET /v1/workspace/events?since_seq=… (the same durable log the SDK backfills from)
+//  - poll: REST GET /v1/workspace/events?since=… (the same durable log the SDK backfills from)
 // MIRROR_MODE=auto (default) starts live and drops to poll if the socket fails.
 import { AgentRelay } from "@agent-relay/sdk";
 import {
@@ -110,7 +110,7 @@ async function startPolling() {
   console.log(`poll mode from seq ${seq} every ${POLL_MS}ms`);
   while (true) {
     try {
-      const res = await fetch(`${BASE_URL}/v1/workspace/events?since_seq=${seq}&limit=100`, {
+      const res = await fetch(`${BASE_URL}/v1/workspace/events?since=${seq}&limit=100`, {
         headers: { Authorization: `Bearer ${observer!.token}` },
       });
       if (res.ok) {
@@ -128,7 +128,7 @@ async function startPolling() {
               ts: e.payload.created_at ?? e.created_at,
               channel: typeof ch === "string" ? ch : ch?.name,
               conversationId: e.payload.conversation_id,
-              to: e.payload.to?.agent_name ?? e.payload.recipient?.agent_name,
+              to: m.metadata?.to ?? e.payload.to?.agent_name ?? e.payload.recipient?.agent_name,
               threadId: e.payload.thread_id ?? e.payload.parent_id,
               mode: m.injection_mode,
             });
