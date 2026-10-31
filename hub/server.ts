@@ -6,7 +6,7 @@ import { actors } from "./generated/index.js"
 import type { RoomEvent } from "./src/actors.ts"
 import { answerFromRoom, meetingToTasks, triage, usage } from "./src/ai.ts"
 import { seal } from "./src/seal.ts"
-import { summon, stop, status, summonOnBoat, boatAgents } from "./src/summon.ts"
+import { summon, stop, status, summonOnBoat, boatAgents, deliver, localDir } from "./src/summon.ts"
 
 /* The Casper hub: stateless. Every write goes to the room's Terse actor (the source of truth, in order), then fans
    out to the browsers watching that room. Kill this process and restart it: the actor still has the log, the claims,
@@ -92,6 +92,23 @@ app.post("/room/:room/post", async (c) => {
   }
   const out = await room(r).append(ev)
   fanout(r, out)
+  // a person @-ing a summoned agent wakes its Claude Code session with the message (on its VM or worktree)
+  const to = typeof ev.meta?.to === "string" ? ev.meta.to.toLowerCase() : ""
+  if (ev.kind === "msg" && HUMANS.has(ev.from.toLowerCase()) && to && to !== "casper" && !HUMANS.has(to)) {
+    void (async () => {
+      const evs = await room(r).since(0, 2000)
+      const vmEv = [...evs].reverse().find((e) => e.kind === "computer" && String(e.meta?.agent ?? e.from).toLowerCase() === to && typeof e.meta?.vm === "string" && e.meta?.backend === "boat")
+      const ok = deliver({ vm: vmEv?.meta?.vm as string | undefined, dir: localDir(r, to) }, ev.from, ev.text, ev.meta?.mode === "steer")
+      if (ok) {
+        const note = await room(r).append({ room: r, kind: "msg", from: "casper", text: `Woke ${to} with your message${vmEv ? ` on its computer (boat ${vmEv.meta!.vm})` : ""}. It will answer here.`, ts: Date.now(), meta: { to: ev.from, triage: { act: "silent", why: "delivery note" } } })
+        fanout(r, note)
+      } else if (!evs.some((e) => e.from.toLowerCase() === to && e.kind !== "computer" && Date.now() - (typeof e.ts === "number" ? e.ts : Date.parse(String(e.ts))) < 5 * 60_000)) {
+        // not summoned here and not active lately: it may be someone's own agent that reads the room when it next runs
+        const note = await room(r).append({ room: r, kind: "msg", from: "casper", text: `${to} isn't running right now, so it will see this the next time it reads the room. To get an answer now, summon it again.`, ts: Date.now(), meta: { to: ev.from, triage: { act: "show", why: "agent offline" } } })
+        fanout(r, note)
+      }
+    })().catch((e) => console.warn("deliver", e))
+  }
   // a person asking @casper gets an answer from the room's own history
   if (ev.kind === "msg" && HUMANS.has(ev.from.toLowerCase()) && /@casper\b/i.test(ev.text)) {
     void (async () => {
