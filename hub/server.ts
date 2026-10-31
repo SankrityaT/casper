@@ -131,7 +131,7 @@ app.post("/room/:room/post", async (c) => {
     })().catch((e) => console.warn("deliver", e))
   }
   // nobody addressed: Stretch decides whether someone should act on it
-  if (ev.kind === "msg" && HUMANS.has(ev.from.toLowerCase()) && !to && !/@\w/.test(ev.text) && ev.text.trim().length > 3) {
+  if (ev.kind === "msg" && HUMANS.has(ev.from.toLowerCase()) && !to && !/@\w/.test(ev.text) && ev.text.trim().length > 3 && !ev.meta?.history) {
     void (async () => {
       const { evs, vms, names } = await roomAgents(r)
       const recent = evs.slice(-12).map((e) => `${e.from}: ${e.text}`)
