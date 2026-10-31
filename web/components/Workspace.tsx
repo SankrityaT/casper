@@ -17,7 +17,7 @@ import Summon, { type Summoned } from "@/components/ws/Summon";
 import { SourceCtx } from "@/components/ws/SourcePeek";
 import { BellPage, AgentsPage, LibraryPage, SettingsPage, UsagePage } from "@/components/ws/Pages";
 import LiveRoom, { LiveBells, LiveCanvas } from "@/components/ws/Live";
-import { HUB, listRooms, createRoom } from "@/lib/live";
+import { HUB, listRooms, createRoom, me } from "@/lib/live";
 const LIVE = "autopay";
 
 type Page = "room" | "bell" | "agents" | "library" | "settings" | "usage";
@@ -178,6 +178,13 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
   const [photo, setPhoto] = useState(false);
   const [newRoom, setNewRoom] = useState(false);
   const summon = (a: Summoned) => {
+    if (isLive(room) && HUB.url) {
+      fetch(`${HUB.url}/room/${encodeURIComponent(room)}/summon`, { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: a.name, task: a.job || "Pick an open task in this room and do it.", by: me(), approver: a.approver }) })
+        .then(async (r) => { if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "Couldn't summon."); setSummonOpen(false); })
+        .catch((e) => alert((e as Error).message));
+      return;
+    }
     const seat = SLOTS.find((x) => !summoned.includes(x));
     if (!seat) return;
     P[seat] = { name: a.name, kind: a.kind, sub: `${a.job || "summoned"} · ${a.runsOn}` };

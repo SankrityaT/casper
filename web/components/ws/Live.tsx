@@ -139,6 +139,13 @@ export default function LiveRoom({ room }: { room: string }) {
   };
   const digestAt = new Map(d.digests.map((g) => [g.at, g]));
   const [panel, setPanel] = useState<null | "call" | "connect">(null);
+  const [workers, setWorkers] = useState<{ name: string; running: boolean }[]>([]);
+  useEffect(() => {
+    if (!HUB.url) return;
+    const load = () => fetch(`${HUB.url}/room/${encodeURIComponent(room)}/agents`).then((r) => r.json()).then((x) => Array.isArray(x) && setWorkers(x)).catch(() => {});
+    load(); const t = setInterval(load, 5000); return () => clearInterval(t);
+  }, [room]);
+  const stopWorker = (n: string) => fetch(`${HUB.url}/room/${encodeURIComponent(room)}/summon/${encodeURIComponent(n)}/stop`, { method: "POST" }).then(() => setWorkers((w) => w.map((x) => (x.name === n ? { ...x, running: false } : x))));
   const [call, setCall] = useState("");
   const [callBusy, setCallBusy] = useState(false);
   const [callErr, setCallErr] = useState("");
@@ -178,6 +185,13 @@ export default function LiveRoom({ room }: { room: string }) {
         })}
       </div>
 
+      {workers.some((w) => w.running) && (
+        <div className="lv-workers">
+          {workers.filter((w) => w.running).map((w) => (
+            <span key={w.name} className="lv-worker"><i />{nameOf(w.name)} is working on its own branch<button className="lv-link" onClick={() => stopWorker(w.name)}>Stop</button></span>
+          ))}
+        </div>
+      )}
       {panel === "call" && (
         <div className="lv-panel">
           <b>Share a call</b>
