@@ -77,7 +77,8 @@ export function appendOut(event: CasperEvent) {
 /** Append to out.jsonl, and when HUB_URL is set POST to the hub: /room/:room/post {from,text,kind,meta,...}. */
 export async function publish(event: CasperEvent) {
   appendOut(event);
-  if (!HUB_URL) return;
+  // The hub logs claims itself from POST /room/:room/claim (and rejects kind "claim" posts).
+  if (!HUB_URL || event.kind === "claim") return;
   try {
     const res = await fetch(`${HUB_URL}/room/${encodeURIComponent(event.room)}/post`, {
       method: "POST",

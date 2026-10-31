@@ -227,7 +227,10 @@ async function inConversation(agent: Agent, conversationId?: string) {
   return convMembers.get(conversationId)?.has(agent.p.name) ?? false;
 }
 
+let pumping = false; // inbox lookups can take seconds; never run two pumps over the same events
 async function pump() {
+  if (pumping) return;
+  pumping = true;
   try {
     const page = await fetchEvents(cursor);
     for (const e of page.events) {
@@ -253,6 +256,8 @@ async function pump() {
     }
   } catch (err) {
     console.warn("event pump:", (err as Error).message);
+  } finally {
+    pumping = false;
   }
 }
 
