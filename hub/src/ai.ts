@@ -27,7 +27,7 @@ export async function meetingToTasks(transcript: string): Promise<{ summary: str
     "gpt-5.4-mini",
     `You turn a team call transcript into work for a room of people and AI agents.
 Return JSON: {"summary": one sentence, "tasks": [{"title": short imperative (max 8 words), "owner_hint": "code"|"design"|"launch"|"people", "why": one short line}]}.
-3 to 5 tasks, only things that were actually agreed. No filler.`,
+3 to 4 tasks, only things that were actually agreed. Each task must be a distinct job one agent can own end to end (for example: build it in code, write the demo or launch script, draft the launch post). Approvals, "ask before posting", and implementation details of another task are NOT separate tasks; fold them into the task they belong to. No filler.`,
     transcript.slice(0, 20000), 30000)
   const tasks = (out?.tasks ?? []).filter((t) => t.title).slice(0, 6).map((t, i) => ({ id: `t${Date.now().toString(36)}${i}`, title: String(t.title).slice(0, 80), owner_hint: t.owner_hint, why: t.why }))
   return { summary: out?.summary ?? "From the call.", tasks }

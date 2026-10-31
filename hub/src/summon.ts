@@ -60,9 +60,14 @@ export const repoReady = () => existsSync(join(REPO, ".git"))
 const BOAT = process.env.BOAT_BIN ?? `${process.env.HOME}/.ascii/bin/boat`
 const boatRunning = new Map<string, { vm: string; started: number }>()
 
-function boat(args: string[], timeoutMs = 180_000): string {
-  const r = Bun.spawnSync([BOAT, args[0], "--no-update", ...args.slice(1)], { stdout: "pipe", stderr: "pipe", timeout: timeoutMs })
-  const out = r.stdout.toString() + r.stderr.toString()
+async function boat(args: string[], timeoutMs = 180_000): Promise<string> {
+  // async, so one agent's computer setting up never blocks the hub or the other agents
+  const proc = Bun.spawn([BOAT, args[0], "--no-update", ...args.slice(1)], { stdout: "pipe", stderr: "pipe" })
+  const kill = setTimeout(() => proc.kill(), timeoutMs)
+  const [o, e] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text()])
+  const code = await proc.exited; clearTimeout(kill)
+  const out = o + e
+  const r = { exitCode: code }
   if (r.exitCode !== 0) {
     const m = (/"stderr":"([^"]+)"/.exec(out)?.[1] ?? /"error":"([^"]+)"/.exec(out)?.[1] ?? /"stdout":"([^"]+)"/.exec(out)?.[1] ?? out).slice(-400)
     console.warn("boat failed:", args[0], out.slice(-600))
@@ -70,22 +75,22 @@ function boat(args: string[], timeoutMs = 180_000): string {
   }
   return out
 }
-const boatExec = (vm: string, cmd: string) => {
-  const out = boat(["exec", vm, "--timeout", "180", "--json", cmd])
+const boatExec = async (vm: string, cmd: string) => {
+  const out = await boat(["exec", vm, "--timeout", "180", "--json", cmd])
   const j = JSON.parse(out.trim().split("\n").pop() ?? "{}") as { success?: boolean; stdout?: string; stderr?: string }
   if (j.success === false) throw new Error(`in the VM: ${(j.stderr ?? "").slice(-300)}`)
   return j.stdout ?? ""
 }
-function pushText(vm: string, to: string, files: Record<string, string>) {
+async function pushText(vm: string, to: string, files: Record<string, string>) {
   const dir = `/tmp/casper-push-${Math.random().toString(36).slice(2)}`
   mkdirSync(dir, { recursive: true, mode: 0o700 })
   for (const [n, t] of Object.entries(files)) writeFileSync(join(dir, n), t, { mode: 0o600 })
-  try { boat(["push", vm, dir, "--to", to]) } finally { Bun.spawnSync(["rm", "-rf", dir]) }
+  try { await boat(["push", vm, dir, "--to", to]) } finally { Bun.spawnSync(["rm", "-rf", dir]) }
 }
 
 export async function summonOnBoat(i: SummonInput & { publicHub: string }, say: (text: string, meta?: Record<string, unknown>) => Promise<void>) {
   const key = `${i.room}/${i.name}`
-  const created = boat(["new", "--json", "--ttl", "7200", "--name", `casper-${i.room}-${i.name}`.slice(0, 60)], 240_000)
+  const created = await boat(["new", "--json", "--ttl", "7200", "--name", `casper-${i.room}-${i.name}`.slice(0, 60)], 240_000)
   const vm = /"id":"(bx_[a-z0-9]+)"/.exec(created)?.[1]
   if (!vm) throw new Error("boat didn't return a sandbox id")
   boatRunning.set(key, { vm, started: Date.now() })
@@ -94,13 +99,13 @@ export async function summonOnBoat(i: SummonInput & { publicHub: string }, say: 
   sh("git", ["fetch", "-q", "origin", "main"], REPO)
   const bdir = `/tmp/casper-bundle-${vm}`; mkdirSync(bdir, { recursive: true })
   sh("git", ["bundle", "create", "-q", join(bdir, "casper.bundle"), "origin/main"], REPO)
-  try { boat(["push", vm, bdir, "--to", "/home/user/bundle"]) } finally { Bun.spawnSync(["rm", "-rf", bdir]) }
+  try { await boat(["push", vm, bdir, "--to", "/home/user/bundle"]) } finally { Bun.spawnSync(["rm", "-rf", bdir]) }
   const branch = `agent/${i.name}-${Date.now().toString(36)}`
   const keys = (process.env.ANTHROPIC_API_KEYS ?? process.env.ANTHROPIC_API_KEY ?? "").split(",").map((k) => k.trim()).filter(Boolean)
   const gh = process.env.CASPER_GITHUB_TOKEN ?? ""
-  pushText(vm, "/home/user/.casper", { "push-gate.sh": readFileSync(resolve(REPO, "hub/hooks/push-gate.sh"), "utf8") })
-  pushText(vm, "/home/user/.casper-keys", { anthropic: keys[Math.floor(Math.random() * keys.length)] ?? "", ...(gh ? { github: gh } : {}) })
-  boatExec(vm, [
+  await pushText(vm, "/home/user/.casper", { "push-gate.sh": readFileSync(resolve(REPO, "hub/hooks/push-gate.sh"), "utf8") })
+  await pushText(vm, "/home/user/.casper-keys", { anthropic: keys[Math.floor(Math.random() * keys.length)] ?? "", ...(gh ? { github: gh } : {}) })
+  await boatExec(vm, [
     "set -e; trap 'echo FAILED AT: $BASH_COMMAND' ERR",
     "rm -rf ~/casper && git init -q -b scratch ~/casper && cd ~/casper",
     "git fetch -q ~/bundle/casper.bundle 'refs/remotes/origin/main:refs/remotes/origin/main'",
@@ -118,14 +123,14 @@ export async function summonOnBoat(i: SummonInput & { publicHub: string }, say: 
   const prompt = `You are ${i.name}, an agent in the Casper room #${i.room}, on your own computer (boat ${vm}) with the Casper repo at ~/casper on branch ${branch}.
 ${i.by} summoned you and asked: ${i.task}
 The casper tools let you read the room, see and claim tasks, post to people, and ring the bell when you need someone's yes (pushing is gated on it). Talk like a teammate, not a log.`
-  pushText(vm, "/home/user/.casper-task", { "prompt.txt": prompt })
+  await pushText(vm, "/home/user/.casper-task", { "prompt.txt": prompt })
   const tools = "mcp__casper__read_room,mcp__casper__post,mcp__casper__claim,mcp__casper__tasks,mcp__casper__ring_bell,mcp__casper__check_bell,Read,Edit,Write,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git log:*),Bash(sleep:*)"
   // run it in a terminal on the VM's desktop so people can watch it work; headless if there's no desktop terminal
-  pushText(vm, "/home/user/.casper-task", { "prompt.txt": prompt, "show.py": readFileSync(resolve(REPO, "hub/hooks/show.py"), "utf8"), "run.sh": `#!/bin/bash\ncd ~/casper\nexport ANTHROPIC_API_KEY=$(cat ~/.casper-keys/anthropic)\necho "${i.name}: working on its own computer"\nclaude -p "$(cat ~/.casper-task/prompt.txt)" --verbose --output-format stream-json --max-turns 60 --dangerously-skip-permissions 2>>~/agent.err | tee -a ~/agent.jsonl | python3 ~/.casper-task/show.py | tee -a ~/agent.log\nexec bash\n` })
-  const term = boatExec(vm, `chmod +x ~/.casper-task/run.sh; export DISPLAY=:0; if command -v gnome-terminal >/dev/null; then (setsid gnome-terminal --geometry=160x45 -- bash -lc ~/.casper-task/run.sh >/dev/null 2>&1 &); echo desktop; elif command -v xterm >/dev/null; then (setsid xterm -fa Monospace -fs 11 -geometry 160x45 -e bash -lc ~/.casper-task/run.sh >/dev/null 2>&1 &); echo desktop; else echo none; fi`).trim()
-  if (term !== "desktop") boat(["exec", vm, "--detach", `cd ~/casper && ANTHROPIC_API_KEY=$(cat ~/.casper-keys/anthropic) claude -p "$(cat ~/.casper-task/prompt.txt)" --max-turns 60 --allowedTools '${tools}' > ~/agent.log 2>&1`])
+  await pushText(vm, "/home/user/.casper-task", { "prompt.txt": prompt, "show.py": readFileSync(resolve(REPO, "hub/hooks/show.py"), "utf8"), "run.sh": `#!/bin/bash\ncd ~/casper\nexport ANTHROPIC_API_KEY=$(cat ~/.casper-keys/anthropic)\necho "${i.name}: working on its own computer"\nclaude -p "$(cat ~/.casper-task/prompt.txt)" --verbose --output-format stream-json --max-turns 60 --dangerously-skip-permissions 2>>~/agent.err | tee -a ~/agent.jsonl | python3 ~/.casper-task/show.py | tee -a ~/agent.log\nexec bash\n` })
+  const term = (await boatExec(vm, `chmod +x ~/.casper-task/run.sh; export DISPLAY=:0; if command -v gnome-terminal >/dev/null; then (setsid gnome-terminal --geometry=160x45 -- bash -lc ~/.casper-task/run.sh >/dev/null 2>&1 &); echo desktop; elif command -v xterm >/dev/null; then (setsid xterm -fa Monospace -fs 11 -geometry 160x45 -e bash -lc ~/.casper-task/run.sh >/dev/null 2>&1 &); echo desktop; else echo none; fi`)).trim()
+  if (term !== "desktop") await boat(["exec", vm, "--detach", `cd ~/casper && ANTHROPIC_API_KEY=$(cat ~/.casper-keys/anthropic) claude -p "$(cat ~/.casper-task/prompt.txt)" --max-turns 60 --allowedTools '${tools}' > ~/agent.log 2>&1`])
   let desktopUrl: string | undefined
-  try { desktopUrl = /https:\/\/[^"\s]+/.exec(boat(["desktop", vm, "--json"], 60_000))?.[0] } catch { /* no desktop */ }
+  try { desktopUrl = /https:\/\/[^"\s]+/.exec(await boat(["desktop", vm, "--json"], 60_000))?.[0] } catch { /* no desktop */ }
   await say(`${i.name} is working on its own computer (boat ${vm}), branch ${branch}${term === "desktop" ? ", in a terminal you can watch" : ""}.`, { vm, backend: "boat", agent: i.name, branch, desktopUrl })
   return { vm, branch }
 }
@@ -138,8 +143,8 @@ const TOOLS_ALL = "mcp__casper__read_room,mcp__casper__post,mcp__casper__claim,m
 export function deliver(where: { vm?: string; dir?: string }, from: string, text: string, steer: boolean): boolean {
   const msg = `${from} in the room: ${text}${steer ? "\n(${from} marked this as a steer.)" : ""}`
   if (where.vm) {
-    pushText(where.vm, "/home/user/.casper-task", { "reply.txt": msg })
-    boat(["exec", where.vm, "--detach", `cd ~/casper && ANTHROPIC_API_KEY=$(cat ~/.casper-keys/anthropic) claude -p --continue "$(cat ~/.casper-task/reply.txt)" --max-turns 30 --dangerously-skip-permissions >> ~/agent.log 2>&1`])
+    const vm = where.vm
+    void pushText(vm, "/home/user/.casper-task", { "reply.txt": msg }).then(() => boat(["exec", vm, "--detach", `cd ~/casper && ANTHROPIC_API_KEY=$(cat ~/.casper-keys/anthropic) claude -p --continue "$(cat ~/.casper-task/reply.txt)" --max-turns 30 --dangerously-skip-permissions >> ~/agent.log 2>&1`])).catch((e) => console.warn("deliver", e))
     return true
   }
   if (where.dir && existsSync(where.dir)) {

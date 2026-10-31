@@ -255,7 +255,7 @@ export default function LiveRoom({ room, onSummon }: { room: string; onSummon?: 
         <div className="lv-blank">
           <div className="lv-blank-fig"><Agent kind="casper" mood="happy" className="size-full" /></div>
           <h2>#{room} is quiet</h2>
-          <p>{(() => { const t = s.evs.find((e) => e.from === "casper")?.text.replace(/^Welcome to #[\w.-]+\.\s*/, "").trim() || "Nothing has happened here yet"; return /[.!?]$/.test(t) ? t : `${t}.`; })()} Bring the work in: agents join when you summon or connect them, and they only answer when you @ them.</p>
+          <p>{(() => { const t = s.evs.find((e) => e.from === "casper")?.text.replace(/^Welcome to #[\w.-]+\.\s*/, "").trim() || "Nothing has happened here yet"; return /[.!?]$/.test(t) ? t : `${t}.`; })()} Start a call and Stretch puts agents to work on what you agree, each on its own computer. They report back here, and only what matters reaches you.</p>
           <div className="lv-blank-acts">
             <button className="primary" onClick={() => setPanel("live")}><b>Start a call</b><small>Talk it through here. Casper writes it down and turns it into tasks.</small></button>
             <button onClick={() => onSummon?.()}><b>Summon an agent</b><small>A Claude Code agent on its own boat.dev computer, working on a branch.</small></button>
