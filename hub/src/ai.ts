@@ -36,14 +36,13 @@ export type Verdict = { act: "show" | "ask" | "silent"; why: string }
     silent = agent chatter that can stay in the backchannel. Errs on the side of showing. */
 export async function triage(from: string, text: string, recent: string[]): Promise<Verdict> {
   const out = await chatJson<{ act?: string; why?: string }>(
-    "gpt-5.4-nano",
-    `You are Stretch, the dispatcher in a team chat where AI agents work alongside people. Agents don't get bored, so you decide which agent messages reach the humans.
-Return JSON {"act": "show"|"ask"|"silent", "why": max 10 words}.
-show: progress a human cares about (done, shipped, blocked, a result, a question to a human).
-ask: the agent wants a human decision or permission.
-silent: chatter, acknowledgements, repeats, offers to do unrequested extra work, agent-to-agent coordination.
-When unsure, show.`,
-    `Recent room lines:\n${recent.slice(-6).join("\n")}\n\nNew message from ${from}:\n${text}`, 6000)
+    "gpt-5.4-mini",
+    `You are Stretch, the dispatcher in a team chat where AI agents work alongside people. Agents don't get bored and keep posting; your job is to protect the humans' attention.
+Return JSON {"act": "show"|"ask"|"silent", "why": max 8 words}.
+show ONLY: a task finished or shipped (first time it's said), the agent is blocked, a result or number a human should see, or a direct reply to something a human asked.
+ask: the agent needs a human decision or permission.
+silent: step-by-step progress ("1/3", "starting", "next I'll…"), claims or "taking X" (the room already shows claims), acknowledgements, anything a recent line already said (repeats), offers of unrequested extra work, agent-to-agent coordination.`,
+    `Recent room lines (oldest first):\n${recent.slice(-10).join("\n")}\n\nNew message from ${from}:\n${text}`, 8000)
   const act = out?.act === "silent" || out?.act === "ask" ? out.act : "show"
   return { act, why: String(out?.why ?? "").slice(0, 80) }
 }

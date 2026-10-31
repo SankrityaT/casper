@@ -279,7 +279,7 @@ export default function LiveRoom({ room }: { room: string }) {
           const who = idOf(e.from) ?? "casper";
           const to = e.meta?.to ? idOf(String(e.meta.to)) ?? undefined : undefined;
           const steered = e.meta?.mode === "steer";
-          return <Bubble k={`${room}-${k}`} who={who} to={to} text={idOf(e.from) ? e.text : `${e.from}: ${e.text}`} meta={`${P[who].kind ? P[who].sub : nameOf(e.from)}${steered ? " · steer" : ""}${e.kind === "relay" ? " · via Relay" : ""}`} />;
+          return <Bubble k={`${room}-${k}`} who={who} to={to} text={idOf(e.from) ? e.text : `${e.from}: ${e.text}`} meta={`${P[who].kind ? P[who].sub : nameOf(e.from)}${steered ? " · steer" : ""}${e.kind === "relay" ? " · via Relay" : ""}${(e.meta?.triage as { act?: string } | undefined)?.act === "ask" ? " · Stretch: needs a decision" : ""}`} />;
         })();
         return (
           <div key={k}>

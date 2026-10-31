@@ -85,7 +85,7 @@ app.post("/room/:room/post", async (c) => {
   {
     await listed(r)
     if (ev.kind === "msg" && !HUMANS.has(ev.from.toLowerCase()) && ev.text && !(ev.meta && "triage" in ev.meta)) {
-      const recent = (await room(r).since(Math.max(0, (await room(r).summary()).lastSeq - 6))).map((e) => `${e.from}: ${e.text}`)
+      const recent = (await room(r).since(Math.max(0, (await room(r).summary()).lastSeq - 10))).map((e) => `${e.from}: ${e.text}`)
       const v = await triage(ev.from, ev.text, recent)
       ev.meta = { ...(ev.meta ?? {}), triage: v }
     }
@@ -250,7 +250,7 @@ async function callTool(r: string, agent: string, name: string, a: Record<string
     case "post": {
       const ev: RoomEvent = { room: r, kind: "msg", from: agent, text: str(a.text, "text", 8000), ts: Date.now(), meta: a.to ? { to: String(a.to) } : undefined }
       if (!HUMANS.has(agent)) {
-        const recent = (await R.since(Math.max(0, (await R.summary()).lastSeq - 6))).map((e) => `${e.from}: ${e.text}`)
+        const recent = (await R.since(Math.max(0, (await R.summary()).lastSeq - 10))).map((e) => `${e.from}: ${e.text}`)
         ev.meta = { ...(ev.meta ?? {}), triage: await triage(agent, ev.text, recent) }
       }
       const out = await R.append(ev); fanout(r, out)
