@@ -314,3 +314,11 @@ export const hookSetup = (room: string, agent: string) => {
 # then in .claude/settings.json of the repo the agent works in:
 {"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"CASPER_HUB=${hub} CASPER_ROOM=${room} CASPER_AGENT=${agent || "my-agent"} ~/.casper-push-gate.sh"}]}]}}`;
 };
+
+/* who you are in the room: ?me=kinjal once (remembered), default Sankritya */
+export function me(): string {
+  if (typeof window === "undefined") return "sankritya";
+  const q = new URLSearchParams(location.search).get("me");
+  if (q && /^[a-z0-9._-]{1,40}$/i.test(q)) localStorage.setItem("casper.me", q.toLowerCase());
+  return localStorage.getItem("casper.me") ?? "sankritya";
+}

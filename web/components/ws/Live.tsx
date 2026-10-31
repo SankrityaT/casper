@@ -5,12 +5,12 @@ import Agent from "@/components/Agent";
 import { Bubble } from "@/components/ws/Chat";
 import { P, Ic } from "@/components/ws/data";
 import type { Id } from "@/components/ws/data";
-import { HUB, answer, derive, hookSetup, hush, liveMode, mcpCommand, post, shareCall, useLive, type LiveEv } from "@/lib/live";
+import { HUB, me, answer, derive, hookSetup, hush, liveMode, mcpCommand, post, shareCall, useLive, type LiveEv } from "@/lib/live";
 
 /* A live room: what the hub (or the Relay mirror) says happened, in seq order.
    Agents argue on Relay; only what needs a person reaches the room. Hush holds an agent's lines without stopping its work. */
 
-const ME = "sankritya";
+const ME_DEFAULT = "sankritya";
 const idOf = (name: string): Id | null => {
   const k = name.toLowerCase().split("#")[0] as Id;
   return P[k] ? k : null;
@@ -32,8 +32,8 @@ function Sys({ who, children, tone }: { who: string; children: React.ReactNode; 
 function BellCard({ ev, done, room }: { ev: LiveEv; done?: { yes: boolean; by: string }; room: string }) {
   const [busy, setBusy] = useState(false);
   const files = (ev.meta?.files as string[] | undefined) ?? [];
-  const forWho = String(ev.meta?.for ?? ME);
-  const go = async (yes: boolean) => { setBusy(true); try { await answer(room, String(ev.meta?.askId), yes, ME); } finally { setBusy(false); } };
+  const forWho = String(ev.meta?.for ?? me());
+  const go = async (yes: boolean) => { setBusy(true); try { await answer(room, String(ev.meta?.askId), yes, me()); } finally { setBusy(false); } };
   return (
     <div className={`lv-bell ${done ? (done.yes ? "yes" : "no") : ""}`}>
       <div className="lv-bell-k">{done ? (done.yes ? `Approved by ${nameOf(done.by)}` : `${nameOf(done.by)} said not now`) : `Needs ${nameOf(forWho)}`}</div>
@@ -71,7 +71,7 @@ function Computer({ stream, agent }: { stream: string; agent: string }) {
           const d = JSON.parse(String(m.data));
           if (d.type === "frame" && img.current) img.current.src = `data:image/jpeg;base64,${d.data}`;
           else if (d.url || d.type === "url") setUrl(String(d.url ?? ""));
-          else if (d.type === "takeover") setMine(!!d.on && d.by === "Sankritya");
+          else if (d.type === "takeover") setMine(!!d.on && d.by === nameOf(me()));
         } catch { /* skip */ }
       };
       ws.onclose = () => { setSt("down"); t = setTimeout(go, 2000); };
@@ -80,7 +80,7 @@ function Computer({ stream, agent }: { stream: string; agent: string }) {
     return () => { dead = true; clearTimeout(t); sock.current?.close(); };
   }, [stream]);
   const send = (m: unknown) => { if (sock.current?.readyState === 1) sock.current.send(JSON.stringify(m)); };
-  const take = (on: boolean) => { send({ type: "takeover", on, by: "Sankritya" }); setMine(on); };
+  const take = (on: boolean) => { send({ type: "takeover", on, by: nameOf(me()) }); setMine(on); };
   const point = (e: React.MouseEvent<HTMLImageElement>, type: string) => {
     if (!mine || !img.current) return;
     const r = img.current.getBoundingClientRect();
@@ -134,7 +134,7 @@ export default function LiveRoom({ room }: { room: string }) {
   const send = () => {
     const t = draft.trim();
     if (!t) return;
-    post(room, ME, t, mention ? { to: mention, mode: steer ? "steer" : "wait" } : undefined);
+    post(room, me(), t, mention ? { to: mention, mode: steer ? "steer" : "wait" } : undefined);
     setDraft(""); setSteer(false);
   };
   const digestAt = new Map(d.digests.map((g) => [g.at, g]));
@@ -150,7 +150,7 @@ export default function LiveRoom({ room }: { room: string }) {
   })();
   const sendCall = async () => {
     setCallBusy(true); setCallErr("");
-    try { await shareCall(room, call, ME); setCall(""); setPanel(null); }
+    try { await shareCall(room, call, me()); setCall(""); setPanel(null); }
     catch (e) { setCallErr((e as Error).message); } finally { setCallBusy(false); }
   };
   const status = s.status === "live" ? "Live" : s.status === "sim" ? "Simulated run" : s.status === "offline" ? "Reconnecting…" : "Connecting…";
@@ -171,7 +171,7 @@ export default function LiveRoom({ room }: { room: string }) {
           const on = d.hushed.has(a);
           const held = d.held[a]?.length ?? 0;
           return (
-            <button key={a} className={`lv-hush ${on ? "on" : ""}`} onClick={() => hush(room, a, !on, ME)} title={on ? `Let ${nameOf(a)} talk again` : `Hush ${nameOf(a)}: it keeps working, its messages wait`}>
+            <button key={a} className={`lv-hush ${on ? "on" : ""}`} onClick={() => hush(room, a, !on, me())} title={on ? `Let ${nameOf(a)} talk again` : `Hush ${nameOf(a)}: it keeps working, its messages wait`}>
               <Face who={a} size={18} />{on ? `Unhush ${nameOf(a)}${held ? ` · ${held} held` : ""}` : `Hush ${nameOf(a)}`}
             </button>
           );
