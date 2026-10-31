@@ -128,7 +128,7 @@ function Desktop({ url, agent, vm }: { url: string; agent: string; vm: string })
   );
 }
 
-export default function LiveRoom({ room }: { room: string }) {
+export default function LiveRoom({ room, onSummon }: { room: string; onSummon?: () => void }) {
   const s = useLive(room);
   const d = useMemo(() => derive(s.evs), [s.evs]);
   const [back, setBack] = useState(false);
@@ -156,6 +156,7 @@ export default function LiveRoom({ room }: { room: string }) {
     setDraft(""); setSteer(false);
   };
   const digestAt = new Map(d.digests.map((g) => [g.at, g]));
+  const empty = s.evs.every((e) => e.from === "casper" && !e.meta?.tasks);
   const titleOf = (task: string) => d.tasks.find((t) => t.id === task)?.title ?? task;
   const [panel, setPanel] = useState<null | "call" | "connect">(null);
   const [workers, setWorkers] = useState<{ name: string; running: boolean }[]>([]);
@@ -188,7 +189,19 @@ export default function LiveRoom({ room }: { room: string }) {
 
   return (
     <div className="lv" ref={list}>
-      <div className="lv-strip">
+      {empty && (
+        <div className="lv-blank">
+          <div className="lv-blank-fig"><Agent kind="casper" mood="happy" className="size-full" /></div>
+          <h2>#{room} is quiet</h2>
+          <p>{(() => { const t = s.evs.find((e) => e.from === "casper")?.text.replace(/^Welcome to #[\w.-]+\.\s*/, "").trim() || "Nothing has happened here yet"; return /[.!?]$/.test(t) ? t : `${t}.`; })()} Bring the work in: agents join when you summon or connect them, and they only answer when you @ them.</p>
+          <div className="lv-blank-acts">
+            <button onClick={() => setPanel("call")}><b>Share a call</b><small>Paste a transcript. Casper turns what you agreed into tasks.</small></button>
+            <button onClick={() => onSummon?.()}><b>Summon an agent</b><small>A Claude Code agent on its own boat.dev computer, working on a branch.</small></button>
+            <button onClick={() => setPanel("connect")}><b>Connect your agent</b><small>One command joins your own Claude Code or Codex to this room.</small></button>
+          </div>
+        </div>
+      )}
+      {!empty && <div className="lv-strip">
         <span className={`lv-st ${s.status}`}><i />{status}</span>
         <span className="lv-count" title="Every message agents sent, on Relay and in the room, versus the ones that reached a person">
           <b>{d.agentTotal}</b> agent messages · <b>{d.reached}</b> reached you{d.quiet ? <> · Stretch kept <b>{d.quiet}</b> quiet</> : null}
@@ -207,7 +220,7 @@ export default function LiveRoom({ room }: { room: string }) {
             </button>
           );
         })}
-      </div>
+      </div>}
 
       {workers.some((w) => w.running) && (
         <div className="lv-workers">
@@ -275,9 +288,9 @@ export default function LiveRoom({ room }: { room: string }) {
           : <Desktop key={agent} url={String(e.meta!.desktopUrl)} agent={agent} vm={String(e.meta?.vm ?? "")} />);
       })()}
 
-      {d.visible.length === 0 && <div className="lv-empty">Waiting for the first event{liveMode() === "file" ? " from the Relay mirror" : ""}…</div>}
+      {!empty && d.visible.length === 0 && <div className="lv-empty">Waiting for the first event{liveMode() === "file" ? " from the Relay mirror" : ""}…</div>}
 
-      {d.visible.map((e, i) => {
+      {!empty && d.visible.map((e, i) => {
         const k = e.seq != null ? `s${e.seq}` : e.id ?? `i${i}`;
         const digest = digestAt.get(i);
         const node = (() => {
@@ -321,7 +334,7 @@ export default function LiveRoom({ room }: { room: string }) {
         );
       })}
 
-      <div className="lv-back">
+      {!empty && <div className="lv-back">
         <button className="lv-back-b" onClick={() => setBack(!back)}>
           <Ic d={back ? "M6 15l6-6 6 6" : "M6 9l6 6 6-6"} s={14} />{back ? "Hide" : "Show"} the agents’ backchannel on Relay ({d.backchannel.length})
         </button>
@@ -338,7 +351,7 @@ export default function LiveRoom({ room }: { room: string }) {
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
 
     </div>
