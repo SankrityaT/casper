@@ -217,6 +217,7 @@ export function derive(evs: LiveEv[]): Derived {
     }
     if (e.kind === "approve" && e.meta?.askId && d.asks[e.meta.askId]) d.asks[e.meta.askId].done = { yes: !!e.meta.yes, by: e.meta.by ?? e.from };
     if (e.kind === "bell" && e.meta?.askId) d.asks[e.meta.askId] = { ev: e };
+    if (e.meta?.joined) { d.visible.push(e); continue; } // "X joined the room" is presence, not a message
     if (Array.isArray(e.meta?.tasks)) for (const t of e.meta!.tasks as Derived["tasks"]) if (!d.tasks.some((x) => x.title === t.title)) d.tasks = [...d.tasks, t];
     if (agent && e.kind === "msg" && (e.meta?.triage as { act?: string } | undefined)?.act === "silent" && !d.hushed.has(from)) {
       d.agentTotal++; d.quiet++; d.backchannel.push(e);

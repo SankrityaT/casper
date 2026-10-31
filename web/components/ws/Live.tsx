@@ -218,7 +218,7 @@ export default function LiveRoom({ room, onSummon }: { room: string; onSummon?: 
     setDraft(""); setSteer(false);
   };
   const digestAt = new Map(d.digests.map((g) => [g.at, g]));
-  const empty = s.evs.every((e) => e.from === "casper" && !e.meta?.tasks);
+  const empty = s.evs.every((e) => (e.from === "casper" && !e.meta?.tasks) || e.meta?.joined);
   const titleOf = (task: string) => d.tasks.find((t) => t.id === task)?.title ?? task;
   const [panel, setPanel] = useState<null | "call" | "connect" | "live">(null);
   const [workers, setWorkers] = useState<{ name: string; running: boolean }[]>([]);
@@ -373,6 +373,7 @@ export default function LiveRoom({ room, onSummon }: { room: string; onSummon?: 
               : <Sys who={e.from} tone="quiet">{nameOf(e.from)} let {t} talk again.</Sys>;
           }
           if (e.kind === "approve") return null; // shown on the bell card itself
+          if (e.meta?.joined) return <Sys who={e.from} tone="quiet">{nameOf(e.from)} joined · {String(e.meta.joined)}</Sys>;
           if (e.kind === "computer") return <Sys who={e.from}><Ic d="M3 5h18v11H3z M8 20h8 M12 16v4" s={13} /> {e.text}</Sys>;
           if (e.kind === "bell") {
             const a = d.asks[String(e.meta?.askId)];
