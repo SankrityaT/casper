@@ -26,7 +26,7 @@ const streamUrl = (agent: string) => `${PUBLIC.replace(/^http/, "ws")}/computer/
 const BELL_FOR = process.env.COMPUTER_BELL_FOR ?? "kinjal";
 const ROOM = process.env.CASPER_DM_ROOM ?? "autopay";
 const RISKY = /\b(post|publish|send|tweet|share|delete|remove|pay|buy|purchase|submit|merge|deploy)\b/i;
-const ANSWER_TIMEOUT_MS = Number(process.env.COMPUTER_ANSWER_TIMEOUT_MS ?? 5 * 60_000);
+const ANSWER_TIMEOUT_MS = Number(process.env.COMPUTER_ANSWER_TIMEOUT_MS ?? 30 * 60_000);
 
 interface Pending {
   askId: string;
