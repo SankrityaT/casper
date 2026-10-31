@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Casper · the cast</title>
+<style>
+body{margin:0;background:#141416;color:#eee;font-family:system-ui;padding:30px}
+.row{display:flex;gap:26px;align-items:flex-end;margin-bottom:26px}
+.big{width:220px;height:220px}
+.mid{width:64px;height:64px}
+.sm{width:28px;height:28px}
+.name{font:600 13px system-ui;text-align:center;color:#aaa;margin-top:6px}
+.list{width:360px;background:#1c1c1f;border-radius:14px;padding:6px}
+.li{display:flex;gap:12px;align-items:center;padding:9px 10px}
+.li .a{width:42px;height:42px}
+.li b{display:block;font-weight:600}.li span{color:#888;font-size:13px}
+</style></head><body>
+<div class="row" id="big"></div>
+<div class="row" id="moods"></div>
+<div class="row"><div class="list" id="list"></div><div id="small" class="row" style="margin:0"></div></div>
+<script src="plush.js"></script>
+<script>
+const cast=[['casper','Casper'],['pumpkin','Jack'],['bat','Batty'],['candle','Wick'],['moon','Luna'],['cat','Salem']];
+big.innerHTML=cast.map(([k,n])=>`<div><div class="big">${Plush.svg(k)}</div><div class="name">${n}</div></div>`).join('');
+moods.innerHTML=['calm','alert','worried','sleep','happy'].map(m=>`<div><div class="mid">${Plush.svg('pumpkin',{mood:m})}</div><div class="name">${m}</div></div>`).join('');
+list.innerHTML=[['bat','Batty','apology drafts are ready'],['pumpkin','Jack','waiting for your review'],['candle','Wick','launch post drafted'],['casper','Casper','remembered: autopay is opt-in']].map(([k,n,t])=>`<div class="li"><div class="a">${Plush.svg(k)}</div><div><b>${n}</b><span>${t}</span></div></div>`).join('');
+small.innerHTML=cast.map(([k])=>`<div class="sm">${Plush.svg(k)}</div>`).join('');
+</script></body></html>
