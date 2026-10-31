@@ -174,6 +174,7 @@ export type Derived = {
 };
 const HUMANS = new Set(["sankritya", "kinjal", "you"]);
 export function derive(evs: LiveEv[]): Derived {
+  const claimSeen = new Set<string>();
   const d: Derived = { visible: [], backchannel: [], claims: {}, hushed: new Set(), held: {}, digests: [], asks: {}, tasks: [], quiet: 0, agentTotal: 0, reached: 0 };
   for (const e of evs) {
     const from = e.from.toLowerCase();
@@ -206,7 +207,12 @@ export function derive(evs: LiveEv[]): Derived {
     if (agent) {
       d.agentTotal++;
       if (d.hushed.has(from) && e.kind !== "bell") { (d.held[from] ??= []).push(e); continue; }
-      d.reached++;
+      // a successful claim is a chip, not a ping; a repeat of the same claim isn't shown at all
+      if (e.kind === "claim" && e.meta?.ok !== false) {
+        const key = `${String(e.meta?.task ?? e.text)}|${from}`;
+        if (claimSeen.has(key)) continue;
+        claimSeen.add(key);
+      } else d.reached++;
     }
     d.visible.push(e);
   }

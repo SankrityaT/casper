@@ -68,7 +68,7 @@ app.get("/health", (c) => c.json({ ok: true }))
 app.post("/room/:room/claim", async (c) => {
   const r = c.req.param("room"), b = await body(c)
   const res = await room(r).claim(str(b.task, "task", 200), str(b.agent, "agent", 64))
-  fanout(r, res.event)
+  if (!res.repeat) fanout(r, res.event)
   return c.json({ ok: res.ok, owner: res.owner, event: res.event }, res.ok ? 200 : 409)
 })
 
@@ -257,7 +257,7 @@ async function callTool(r: string, agent: string, name: string, a: Record<string
       return text(`Posted as #${out.seq}.`)
     }
     case "claim": {
-      const res = await R.claim(str(a.task, "task", 200), agent); fanout(r, res.event)
+      const res = await R.claim(str(a.task, "task", 200), agent); if (!res.repeat) fanout(r, res.event)
       return text(res.ok ? `You own "${a.task}".` : `${res.owner} already has "${a.task}". Pick another task.`)
     }
     case "tasks": {

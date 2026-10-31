@@ -64,9 +64,14 @@ export class Room extends Actor {
   }
 
   /** Claim-once: the first agent to claim a task owns it. */
-  async claim(task: string, agent: string): Promise<{ ok: boolean; owner: string; event: RoomEvent }> {
+  async claim(task: string, agent: string): Promise<{ ok: boolean; owner: string; event: RoomEvent; repeat?: boolean }> {
     const have = this.db.exec<{ owner: string }>(`SELECT owner AS owner FROM claims WHERE task = ?`, task)
-    const ok = have.length === 0 || have[0].owner === agent
+    if (have.length && have[0].owner === agent) {
+      // claiming your own task again is a no-op: no new event, nothing for anyone to read
+      const prev = this.db.exec<{ ev: string }>(`SELECT e.ev AS ev FROM claims c JOIN events e ON e.seq = c.seq WHERE c.task = ?`, task)[0]
+      return { ok: true, owner: agent, event: prev ? (JSON.parse(prev.ev) as RoomEvent) : put(this.db, this.id, { room: this.id, kind: "claim", from: agent, text: task, ts: Date.now(), meta: { task, ok: true, owner: agent } }), repeat: true }
+    }
+    const ok = have.length === 0
     const owner = ok ? agent : have[0].owner
     const event = put(this.db, this.id, { room: roomName(this.id), kind: "claim", from: agent, text: task, ts: Date.now(), meta: { task, ok, owner } })
     if (ok && !have.length) this.db.exec(`INSERT INTO claims (task, owner, seq) VALUES (?, ?, ?)`, task, agent, event.seq ?? 0)
