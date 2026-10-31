@@ -10,7 +10,7 @@ import { AgentRelay, type RelayAgentClient } from "@agent-relay/sdk";
 import { type Action, type Think } from "./brain";
 import { thinkClaude } from "./brain-claude";
 import { thinkOpenAI } from "./brain-openai";
-import { DM_ROOM, loadAgents, loadObserver, recordConv, requireKey, roomChannel } from "./state";
+import { DM_ROOM, loadAgents, loadObserver, readJson, recordConv, requireKey, roomChannel } from "./state";
 import { TASKS, claim, loadClaims, postToHub, refreshTasks, taskById } from "./tasks";
 
 const BASE_URL = (process.env.RELAY_BASE_URL ?? "https://cast.agentrelay.com").replace(/\/$/, "");
@@ -212,6 +212,13 @@ if (!fromHub) await postToHub({
 const convMembers = new Map<string, Set<string>>();
 async function inConversation(agent: Agent, conversationId?: string) {
   if (!conversationId) return false;
+  // Senders (bridge, steer, agents) record conversation members locally: no Relay call, no 503 to lose a steer on.
+  if ((readJson<Record<string, string[]>>("convs.json") ?? {})[conversationId]?.includes(agent.p.name)) return true;
+  // The sender's record can trail the event slightly; give it a moment before asking Relay.
+  for (let i = 0; i < 6; i++) {
+    await Bun.sleep(500);
+    if ((readJson<Record<string, string[]>>("convs.json") ?? {})[conversationId]?.includes(agent.p.name)) return true;
+  }
   const known = convMembers.get(conversationId);
   if (known?.has(agent.p.name)) return true;
   try {
