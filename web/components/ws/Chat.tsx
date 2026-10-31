@@ -216,7 +216,7 @@ export function TakeOver({ who }: { who: string }) {
 
 /* ---------- the message box: @ opens a picker, + attaches from your tools ---------- */
 export type Mentionable = { handle: string; name: string; sub: string; face: React.ReactNode; color?: string };
-export function Composer({ value, set, onSend, placeholder, people, noAttach }: { value: string; set: (v: string) => void; onSend: (t: string, a?: Att[]) => void; placeholder: string; people?: Mentionable[]; noAttach?: boolean }) {
+export function Composer({ value, set, onSend, placeholder, people, noAttach, allowEmpty }: { value: string; set: (v: string) => void; onSend: (t: string, a?: Att[]) => void; placeholder: string; people?: Mentionable[]; noAttach?: boolean; allowEmpty?: boolean }) {
   const [att, setAtt] = useState<Att[]>([]);
   const [menu, setMenu] = useState(false);
   const [sel, setSel] = useState(0);
@@ -226,7 +226,7 @@ export function Composer({ value, set, onSend, placeholder, people, noAttach }: 
   const opts = m ? all.filter((x) => x.handle.toLowerCase().startsWith(m[1].toLowerCase()) || x.name.toLowerCase().startsWith(m[1].toLowerCase())) : [];
   const n = Math.min(sel, Math.max(0, opts.length - 1));
   const pick = (x: Mentionable) => { set(value.replace(/@(\w*)$/, `@${x.handle} `)); setSel(0); input.current?.focus(); };
-  const submit = () => { if (!value.trim() && !att.length) return; onSend(value, att.length ? att : undefined); set(""); setAtt([]); setMenu(false); };
+  const submit = () => { if (!value.trim() && !att.length && !allowEmpty) return; onSend(value, att.length ? att : undefined); set(""); setAtt([]); setMenu(false); };
   return (
     <form className="box" onSubmit={(e) => { e.preventDefault(); if (opts.length) pick(opts[n]); else submit(); }}>
       {opts.length > 0 && (
