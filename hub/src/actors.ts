@@ -98,6 +98,12 @@ export class Room extends Actor {
     return rows.map((r) => JSON.parse(r.ev) as RoomEvent)
   }
 
+  /** One bell's state. */
+  async ask(askId: string): Promise<{ status: string; decidedBy: string | null } | null> {
+    const r = this.db.exec<{ status: string; decided_by: string | null }>(`SELECT status AS status, decided_by AS decided_by FROM asks WHERE id = ?`, askId)
+    return r.length ? { status: r[0].status, decidedBy: r[0].decided_by } : null
+  }
+
   /** The room at a glance: last seq, owners, hushed agents, open bells. */
   async summary(): Promise<{ lastSeq: number; claims: Record<string, string>; hushed: string[]; openAsks: string[] }> {
     const last = this.db.exec<{ s: number | null }>(`SELECT MAX(seq) AS s FROM events`)[0]?.s ?? 0
@@ -105,5 +111,41 @@ export class Room extends Actor {
     const hushed = this.db.exec<{ target: string }>(`SELECT target AS target FROM hush WHERE is_on = 1`).map((r) => r.target)
     const openAsks = this.db.exec<{ id: string }>(`SELECT id AS id FROM asks WHERE status = 'open'`).map((r) => r.id)
     return { lastSeq: last, claims, hushed, openAsks }
+  }
+}
+
+/* The wing: which rooms exist. One actor per workspace. */
+export type RoomInfo = { slug: string; topic: string; createdAt: number; createdBy: string }
+
+export class Wing extends Actor {
+  constructor(ctx: ActorContext) {
+    super(ctx)
+    this.db.exec(`CREATE TABLE IF NOT EXISTS rooms (slug TEXT PRIMARY KEY, topic TEXT NOT NULL, created_at INTEGER NOT NULL, created_by TEXT NOT NULL)`)
+  }
+
+  /** Create a room. A slug that's taken gets -2, -3… instead of overwriting the room. */
+  async create(slug: string, topic: string, by: string): Promise<RoomInfo> {
+    const base = slug.toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "room"
+    let s = base
+    for (let n = 2; this.db.exec(`SELECT 1 AS x FROM rooms WHERE slug = ?`, s).length; n++) s = `${base.slice(0, 37)}-${n}`
+    const info: RoomInfo = { slug: s, topic: topic.slice(0, 200), createdAt: Date.now(), createdBy: by }
+    this.db.exec(`INSERT INTO rooms (slug, topic, created_at, created_by) VALUES (?, ?, ?, ?)`, info.slug, info.topic, info.createdAt, info.createdBy)
+    return info
+  }
+
+  /** Make sure a room is listed (rooms that agents post into first get listed too). */
+  async ensure(slug: string, topic: string): Promise<RoomInfo> {
+    const have = this.db.exec<{ slug: string; topic: string; created_at: number; created_by: string }>(
+      `SELECT slug AS slug, topic AS topic, created_at AS created_at, created_by AS created_by FROM rooms WHERE slug = ?`, slug)
+    if (have.length) return { slug: have[0].slug, topic: have[0].topic, createdAt: have[0].created_at, createdBy: have[0].created_by }
+    const info: RoomInfo = { slug, topic, createdAt: Date.now(), createdBy: "casper" }
+    this.db.exec(`INSERT INTO rooms (slug, topic, created_at, created_by) VALUES (?, ?, ?, ?)`, slug, topic, info.createdAt, info.createdBy)
+    return info
+  }
+
+  async list(): Promise<RoomInfo[]> {
+    return this.db.exec<{ slug: string; topic: string; created_at: number; created_by: string }>(
+      `SELECT slug AS slug, topic AS topic, created_at AS created_at, created_by AS created_by FROM rooms ORDER BY created_at`)
+      .map((r) => ({ slug: r.slug, topic: r.topic, createdAt: r.created_at, createdBy: r.created_by }))
   }
 }
