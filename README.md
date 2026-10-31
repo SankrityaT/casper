@@ -170,5 +170,3 @@ Main names: `RELAY_WORKSPACE_KEY`, `CASPER_ROOMS`, `CASPER_DM_ROOM`, `HUB_URL`, 
 ## Team
 
 **Sankritya** and **Kinjal**.
-
-Designed before the event: idea, design, landing page and UI shell. Built at Haunted Hacks: the hub, Terse actors, Agent Relay coordination, agents on VMs, triage and the live rooms.
