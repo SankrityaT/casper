@@ -127,6 +127,9 @@ if (HUB_URL) {
   setInterval(async () => {
     if (![...computers.values()].some((c) => c.pending.size)) return;
     try {
+      // Rewind if the hub's head dropped below our cursor (log migrated or reset).
+      const head = ((await (await fetch(`${HUB_URL}/room/${encodeURIComponent(ROOM)}/summary`)).json()) as { lastSeq?: number }).lastSeq;
+      if (typeof head === "number" && head < since) since = head;
       const res = await fetch(`${HUB_URL}/room/${encodeURIComponent(ROOM)}/events?since=${since}`);
       if (!res.ok) return;
       const body = (await res.json()) as any;

@@ -9,7 +9,8 @@
     "approve": "bun --env-file=../../.env run approve.ts",
     "boat-setup": "bun --env-file=../../.env run boat-setup.ts",
     "start:boat": "COMPUTER_BACKEND=boat bun --env-file=../../.env run server.ts",
-    "desk-setup": "bun --env-file=../../.env run desk-setup.ts"
+    "desk-setup": "bun --env-file=../../.env run desk-setup.ts",
+    "desk-run": "bun --env-file=../../.env run desk-run.ts"
   },
   "dependencies": {
     "@agent-relay/sdk": "15.0.1",

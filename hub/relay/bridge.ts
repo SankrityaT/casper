@@ -31,8 +31,18 @@ console.log(`bridge: hub ${HUB_URL} room ${DM_ROOM} from seq ${since}`);
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
+let ticks = 0;
 async function tick() {
   try {
+    // If the hub's log was migrated or reset its head can drop below our cursor; rewind so nothing is skipped.
+    if (++ticks % 10 === 1) {
+      const head = ((await (await fetch(`${HUB_URL}/room/${DM_ROOM}/summary`)).json()) as { lastSeq?: number }).lastSeq;
+      if (typeof head === "number" && head < since!) {
+        console.log(`hub head ${head} < cursor ${since}; rewinding`);
+        since = head;
+        writeJson("bridge-cursor.json", { seq: since });
+      }
+    }
     const res = await fetch(`${HUB_URL}/room/${DM_ROOM}/events?since=${since}`);
     if (!res.ok) return;
     const events = (await res.json()) as { seq: number; kind: string; from: string; text: string; meta?: { to?: string; mode?: string } }[];

@@ -6,6 +6,7 @@
 #   ./demo.sh extend      push both boat VMs' auto-stop 4h out
 #   ./demo.sh reset       stop agents, clear local claims so a fresh run starts clean
 #   ./demo.sh go          the beats: agents claim + negotiate -> Kinjal steers jack -> wick drafts + rings the bell
+#   ./demo.sh batty "<task>"  real Claude Code on batty's VM desktop gets a task (push rings Kinjal's bell)
 #   ./demo.sh status      what's running
 set -u
 ROOT=$(cd "$(dirname "$0")/../.." && pwd); R=$ROOT/hub/relay; C=$ROOT/hub/computer; LOGS=/tmp/casper-demo
@@ -69,4 +70,6 @@ go(){
 
 status(){ for p in mirror.ts bridge.ts "run server.ts" agents.ts "run wick.ts" cloudflared; do running "$p" && echo "  up    $p" || echo "  down  $p"; done; }
 
-case ${1:-preflight} in preflight|up|extend|reset|go|status) "$1";; *) sed -n 3,9p "$0";; esac
+batty(){ (cd $C && bun run desk-run batty "${1:?task}"); }
+
+case ${1:-preflight} in preflight|up|extend|reset|go|status) "$1";; batty) shift; batty "$@";; *) sed -n 3,10p "$0";; esac
