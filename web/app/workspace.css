@@ -798,3 +798,16 @@
 .ws .lv-pc-screen img{width:100%;height:100%;object-fit:contain;display:block;user-select:none}
 .ws .lv-pc-screen.mine{box-shadow:inset 0 0 0 2px var(--pumpkin);cursor:crosshair}
 .ws .lv-pc-wait{position:absolute;inset:0;display:grid;place-items:center;color:var(--ink-3);font-size:13px}
+.ws .lv-panel{display:flex;flex-direction:column;gap:8px;padding:12px 14px;margin:0 0 8px;border-radius:12px;border:1px solid var(--line-2);background:var(--panel)}
+.ws .lv-panel b{color:var(--ink)}
+.ws .lv-panel small{color:var(--ink-3)}
+.ws .lv-panel textarea,.ws .lv-panel input{width:100%;background:var(--card);border:1px solid var(--line-2);border-radius:10px;color:var(--ink);padding:8px 10px;font:inherit;font-size:13px;resize:vertical;outline:0}
+.ws .lv-cmd{display:block;font-family:var(--font-mono-face),ui-monospace,monospace;font-size:12px;padding:8px 10px;border-radius:8px;background:#0f0f0e;color:var(--ink-2);overflow-wrap:anywhere;user-select:all}
+.ws .lv-tasks{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin:0 0 8px}
+.ws .lv-task{display:flex;flex-direction:column;gap:4px;padding:10px 12px;border-radius:12px;border:1px solid var(--line-2);background:var(--card);min-width:0}
+.ws .lv-task.owned{border-color:rgba(88,196,126,.3)}
+.ws .lv-task-k{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3)}
+.ws .lv-task.owned .lv-task-k{color:var(--green)}
+.ws .lv-task b{font-size:13px;color:var(--ink);overflow-wrap:anywhere}
+.ws .lv-task small{display:inline-flex;align-items:center;gap:5px;color:var(--ink-3);font-size:12px}
+.ws .lv-rl em.q{color:var(--violet);border-color:rgba(155,135,255,.4)}

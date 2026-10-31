@@ -167,12 +167,14 @@ export type Derived = {
   held: Record<string, LiveEv[]>;  // what a hushed agent said while hushed
   digests: { at: number; who: string; evs: LiveEv[] }[];
   asks: Record<string, { ev: LiveEv; done?: { yes: boolean; by: string } }>;
+  tasks: { id: string; title: string; why?: string }[]; // the latest task cards (from a call)
+  quiet: number;                   // agent messages Stretch kept out of the room
   agentTotal: number;              // every agent message, both channels
   reached: number;                 // agent messages that reached a human
 };
 const HUMANS = new Set(["sankritya", "kinjal", "you"]);
 export function derive(evs: LiveEv[]): Derived {
-  const d: Derived = { visible: [], backchannel: [], claims: {}, hushed: new Set(), held: {}, digests: [], asks: {}, agentTotal: 0, reached: 0 };
+  const d: Derived = { visible: [], backchannel: [], claims: {}, hushed: new Set(), held: {}, digests: [], asks: {}, tasks: [], quiet: 0, agentTotal: 0, reached: 0 };
   for (const e of evs) {
     const from = e.from.toLowerCase();
     const agent = !HUMANS.has(from);
@@ -196,6 +198,11 @@ export function derive(evs: LiveEv[]): Derived {
     }
     if (e.kind === "approve" && e.meta?.askId && d.asks[e.meta.askId]) d.asks[e.meta.askId].done = { yes: !!e.meta.yes, by: e.meta.by ?? e.from };
     if (e.kind === "bell" && e.meta?.askId) d.asks[e.meta.askId] = { ev: e };
+    if (Array.isArray(e.meta?.tasks)) for (const t of e.meta!.tasks as Derived["tasks"]) if (!d.tasks.some((x) => x.title === t.title)) d.tasks = [...d.tasks, t];
+    if (agent && e.kind === "msg" && (e.meta?.triage as { act?: string } | undefined)?.act === "silent" && !d.hushed.has(from)) {
+      d.agentTotal++; d.quiet++; d.backchannel.push(e);
+      continue;
+    }
     if (agent) {
       d.agentTotal++;
       if (d.hushed.has(from) && e.kind !== "bell") { (d.held[from] ??= []).push(e); continue; }
@@ -278,3 +285,26 @@ function simHear(room: string, text: string, meta?: LiveEv["meta"]) {
   setTimeout(() => ingest(room, [{ room, kind: "msg", from: who, ts: Date.now(), seq: nextSeq(room),
     text: steer ? "Got it mid-run. Changing course now." : "On it. I'll pick that up after this step." }]), steer ? 700 : 1600);
 }
+
+/* ---------- the wing: rooms, calls ---------- */
+export type HubRoom = { slug: string; topic: string; createdAt: number; createdBy: string };
+export async function listRooms(): Promise<HubRoom[]> {
+  if (!HUB.url) return [];
+  const r = await fetch(`${HUB.url}/rooms`, { cache: "no-store" });
+  return r.ok ? r.json() : [];
+}
+export async function createRoom(slug: string, topic: string, by: string): Promise<HubRoom> {
+  const r = await fetch(`${HUB.url}/rooms`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ slug, topic, by }) });
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "Couldn't create the room.");
+  return r.json();
+}
+export async function shareCall(room: string, transcript: string, by: string) {
+  if (!HUB.url) {
+    local(room, { kind: "msg", from: "casper", text: "From the call: three tasks are open. Claim one.", meta: { tasks: [{ id: "t1", title: "Build the API" }, { id: "t2", title: "Build the UI" }, { id: "t3", title: "Draft the launch post" }] } });
+    return;
+  }
+  const r = await fetch(`${HUB.url}/room/${encodeURIComponent(room)}/meeting`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ transcript, by }) });
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "Couldn't read that call.");
+}
+export const mcpCommand = (room: string, agent: string) =>
+  `claude mcp add --transport http casper "${HUB.url || "<hub-url>"}/mcp?room=${encodeURIComponent(room)}&agent=${encodeURIComponent(agent || "my-agent")}"`;

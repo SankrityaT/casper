@@ -5,7 +5,7 @@ import Agent from "@/components/Agent";
 import { Bubble } from "@/components/ws/Chat";
 import { P, Ic } from "@/components/ws/data";
 import type { Id } from "@/components/ws/data";
-import { answer, derive, hush, liveMode, post, useLive, type LiveEv } from "@/lib/live";
+import { answer, derive, hush, liveMode, mcpCommand, post, shareCall, useLive, type LiveEv } from "@/lib/live";
 
 /* A live room: what the hub (or the Relay mirror) says happened, in seq order.
    Agents argue on Relay; only what needs a person reaches the room. Hush holds an agent's lines without stopping its work. */
@@ -138,6 +138,21 @@ export default function LiveRoom({ room }: { room: string }) {
     setDraft(""); setSteer(false);
   };
   const digestAt = new Map(d.digests.map((g) => [g.at, g]));
+  const [panel, setPanel] = useState<null | "call" | "connect">(null);
+  const [call, setCall] = useState("");
+  const [callBusy, setCallBusy] = useState(false);
+  const [callErr, setCallErr] = useState("");
+  const [agentName, setAgentName] = useState("");
+  const [copied, setCopied] = useState(false);
+  const here = (() => {
+    const seen = [...new Set(s.evs.map((e) => e.from.toLowerCase().split("#")[0]).filter((f) => !["sankritya", "kinjal", "you", "casper", "stretch"].includes(f)))];
+    return seen.length ? seen.slice(0, 5) : s.status === "sim" ? [...AGENTS_HERE] : [];
+  })();
+  const sendCall = async () => {
+    setCallBusy(true); setCallErr("");
+    try { await shareCall(room, call, ME); setCall(""); setPanel(null); }
+    catch (e) { setCallErr((e as Error).message); } finally { setCallBusy(false); }
+  };
   const status = s.status === "live" ? "Live" : s.status === "sim" ? "Simulated run" : s.status === "offline" ? "Reconnecting…" : "Connecting…";
 
   return (
@@ -145,10 +160,14 @@ export default function LiveRoom({ room }: { room: string }) {
       <div className="lv-strip">
         <span className={`lv-st ${s.status}`}><i />{status}</span>
         <span className="lv-count" title="Every message agents sent, on Relay and in the room, versus the ones that reached a person">
-          <b>{d.agentTotal}</b> agent messages · <b>{d.reached}</b> reached you
+          <b>{d.agentTotal}</b> agent messages · <b>{d.reached}</b> reached you{d.quiet ? <> · Stretch kept <b>{d.quiet}</b> quiet</> : null}
         </span>
         <span className="lv-grow" />
-        {AGENTS_HERE.map((a) => {
+        <button className={`lv-hush ${panel === "call" ? "on" : ""}`} onClick={() => setPanel(panel === "call" ? null : "call")} title="Paste a call transcript; Casper turns what you agreed into tasks">
+          <Ic d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2" s={13} />Share a call</button>
+        <button className={`lv-hush ${panel === "connect" ? "on" : ""}`} onClick={() => setPanel(panel === "connect" ? null : "connect")} title="Bring your own agent into this room">
+          <Ic d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1 M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" s={13} />Connect an agent</button>
+        {here.map((a) => {
           const on = d.hushed.has(a);
           const held = d.held[a]?.length ?? 0;
           return (
@@ -159,9 +178,49 @@ export default function LiveRoom({ room }: { room: string }) {
         })}
       </div>
 
-      {Object.keys(d.claims).length > 0 && (
+      {panel === "call" && (
+        <div className="lv-panel">
+          <b>Share a call</b>
+          <small>Paste the transcript (Zoom, Meet, Granola, or notes). Casper lists what you agreed as tasks, and the agents claim them.</small>
+          <textarea value={call} onChange={(e) => setCall(e.target.value)} rows={6} placeholder="Sankritya: the last feature today is Hush…" aria-label="Call transcript" />
+          {callErr && <small className="kerr">{callErr}</small>}
+          <div className="row" style={{ gap: 8 }}>
+            <button className="pill white" disabled={!call.trim() || callBusy} onClick={sendCall}>{callBusy ? "Reading the call…" : "Turn it into tasks"}</button>
+            <button className="pill" onClick={() => setPanel(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
+      {panel === "connect" && (
+        <div className="lv-panel">
+          <b>Connect an agent to #{room}</b>
+          <small>Run this where your agent lives (Claude Code shown; any MCP client works). It can read the room, claim tasks, post, and ring the bell. It runs on your own keys.</small>
+          <input value={agentName} onChange={(e) => setAgentName(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ""))} placeholder="Name your agent, e.g. jack" aria-label="Agent name" />
+          <code className="lv-cmd">{mcpCommand(room, agentName)}</code>
+          <div className="row" style={{ gap: 8 }}>
+            <button className="pill white" onClick={() => { navigator.clipboard?.writeText(mcpCommand(room, agentName)); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>{copied ? "Copied" : "Copy command"}</button>
+            <button className="pill" onClick={() => setPanel(null)}>Done</button>
+          </div>
+        </div>
+      )}
+
+      {d.tasks.length > 0 && (
+        <div className="lv-tasks">
+          {d.tasks.map((t) => {
+            const owner = d.claims[t.title];
+            return (
+              <div key={t.id} className={`lv-task ${owner ? "owned" : ""}`} title={t.why}>
+                <span className="lv-task-k">{owner ? "Claimed" : "Open"}</span>
+                <b>{t.title}</b>
+                {owner ? <small><Face who={owner} size={14} />{nameOf(owner)}</small> : <small>claim it</small>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {Object.keys(d.claims).filter((t) => !d.tasks.some((x) => x.title === t)).length > 0 && (
         <div className="lv-claims">
-          {Object.entries(d.claims).map(([task, owner]) => (
+          {Object.entries(d.claims).filter(([t]) => !d.tasks.some((x) => x.title === t)).map(([task, owner]) => (
             <span key={task} className="lv-claim"><Face who={owner} size={16} /><b>{task}</b><small>{nameOf(owner)}</small></span>
           ))}
         </div>
@@ -229,6 +288,7 @@ export default function LiveRoom({ room }: { room: string }) {
               <div key={e.seq ?? i} className="lv-rl">
                 <Face who={e.from} size={16} /><b>{nameOf(e.from)}</b><span>→ {e.meta?.to ? nameOf(String(e.meta.to)) : String(e.meta?.channel ?? "room")}</span>
                 {e.meta?.mode === "steer" && <em>steer</em>}
+                {(e.meta?.triage as { act?: string } | undefined)?.act === "silent" && <em className="q" title={String((e.meta?.triage as { why?: string }).why ?? "")}>Stretch kept quiet</em>}
                 <p>{e.text}</p>
               </div>
             ))}
