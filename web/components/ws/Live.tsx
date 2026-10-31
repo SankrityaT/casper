@@ -231,6 +231,7 @@ export default function LiveRoom({ room, onSummon }: { room: string; onSummon?: 
   const [call, setCall] = useState("");
   const [callBusy, setCallBusy] = useState(false);
   const [callErr, setCallErr] = useState("");
+  const [callSrc, setCallSrc] = useState("Zoom");
   const [agentName, setAgentName] = useState("");
   const [copied, setCopied] = useState(false);
   const here = (() => {
@@ -244,7 +245,7 @@ export default function LiveRoom({ room, onSummon }: { room: string; onSummon?: 
   ];
   const sendCall = async () => {
     setCallBusy(true); setCallErr("");
-    try { await shareCall(room, call, me()); setCall(""); setPanel(null); }
+    try { await shareCall(room, call, me(), callSrc); setCall(""); setPanel(null); }
     catch (e) { setCallErr((e as Error).message); } finally { setCallBusy(false); }
   };
   const status = s.status === "live" ? "Live" : s.status === "sim" ? "Simulated run" : s.status === "offline" ? "Reconnecting…" : "Connecting…";
@@ -296,7 +297,8 @@ export default function LiveRoom({ room, onSummon }: { room: string; onSummon?: 
       {panel === "call" && (
         <div className="lv-panel">
           <b>Share a call</b>
-          <small>Paste the transcript (Zoom, Meet, Granola, or notes). Casper lists what you agreed as tasks, and the agents claim them.</small>
+          <small>Paste the transcript. Casper lists what you agreed as tasks, and Stretch puts agents on them.</small>
+          <div className="chips">{["Zoom", "Google Meet", "Granola", "notes"].map((x) => <button key={x} className={`chip ${callSrc === x ? "on" : ""}`} onClick={() => setCallSrc(x)}>{x}</button>)}</div>
           <textarea value={call} onChange={(e) => setCall(e.target.value)} rows={6} placeholder="Sankritya: the last feature today is Hush…" aria-label="Call transcript" />
           {callErr && <small className="kerr">{callErr}</small>}
           <div className="row" style={{ gap: 8 }}>

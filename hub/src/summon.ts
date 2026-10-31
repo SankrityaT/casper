@@ -34,10 +34,10 @@ export function summon(i: SummonInput): { dir: string; branch: string } {
   writeFileSync(mcp, JSON.stringify({ mcpServers: { casper: { type: "http", url: `${i.hub}/mcp?room=${encodeURIComponent(i.room)}&agent=${encodeURIComponent(i.name)}` } } }))
   const prompt = `You are ${i.name}, an agent in the Casper room #${i.room}, working in a git worktree of the Casper repo on branch ${branch}.
 ${i.by} summoned you and asked: ${i.task}
-The casper tools let you read the room, see and claim tasks, post to people, and ring the bell when you need someone's yes (pushing is gated on it). Talk like a teammate, not a log.`
+The casper tools let you read the room, see and claim tasks, post to people, and ring the bell when you need someone's yes (pushing is gated on it). Your computer has a desktop with a browser; the computer tools drive it, and people in the room are watching that screen, so use it when the job needs eyes (looking at the live app at https://casper-sand.vercel.app, research, design). Talk like a teammate, not a log.`
   const log = openSync(join(dir, ".casper-agent.log"), "a")
   const proc = spawn("claude", ["-p", prompt, "--mcp-config", mcp, "--max-turns", "60",
-    "--allowedTools", "mcp__casper__read_room,mcp__casper__post,mcp__casper__claim,mcp__casper__tasks,mcp__casper__ring_bell,mcp__casper__check_bell,Read,Edit,Write,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git log:*),Bash(sleep:*)"],
+    "--allowedTools", "mcp__casper__read_room,mcp__casper__post,mcp__casper__claim,mcp__casper__tasks,mcp__casper__ring_bell,mcp__casper__check_bell,mcp__computer,Read,Edit,Write,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git log:*),Bash(sleep:*)"],
     { cwd: dir, stdio: ["ignore", log, log], env: { ...process.env } })
   running.set(key, { proc, started: Date.now(), dir })
   return { dir, branch }
@@ -124,7 +124,7 @@ export async function summonOnBoat(i: SummonInput & { publicHub: string }, say: 
 ${i.by} summoned you and asked: ${i.task}
 The casper tools let you read the room, see and claim tasks, post to people, and ring the bell when you need someone's yes (pushing is gated on it). Talk like a teammate, not a log.`
   await pushText(vm, "/home/user/.casper-task", { "prompt.txt": prompt })
-  const tools = "mcp__casper__read_room,mcp__casper__post,mcp__casper__claim,mcp__casper__tasks,mcp__casper__ring_bell,mcp__casper__check_bell,Read,Edit,Write,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git log:*),Bash(sleep:*)"
+  const tools = "mcp__casper__read_room,mcp__casper__post,mcp__casper__claim,mcp__casper__tasks,mcp__casper__ring_bell,mcp__casper__check_bell,mcp__computer,Read,Edit,Write,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git log:*),Bash(sleep:*)"
   // run it in a terminal on the VM's desktop so people can watch it work; headless if there's no desktop terminal
   await pushText(vm, "/home/user/.casper-task", { "prompt.txt": prompt, "show.py": readFileSync(resolve(REPO, "hub/hooks/show.py"), "utf8"), "run.sh": `#!/bin/bash\ncd ~/casper\nexport ANTHROPIC_API_KEY=$(cat ~/.casper-keys/anthropic)\necho "${i.name}: working on its own computer"\nclaude -p "$(cat ~/.casper-task/prompt.txt)" --verbose --output-format stream-json --max-turns 60 --dangerously-skip-permissions 2>>~/agent.err | tee -a ~/agent.jsonl | python3 ~/.casper-task/show.py | tee -a ~/agent.log\nexec bash\n` })
   const term = (await boatExec(vm, `chmod +x ~/.casper-task/run.sh; export DISPLAY=:0; if command -v gnome-terminal >/dev/null; then (setsid gnome-terminal --geometry=160x45 -- bash -lc ~/.casper-task/run.sh >/dev/null 2>&1 &); echo desktop; elif command -v xterm >/dev/null; then (setsid xterm -fa Monospace -fs 11 -geometry 160x45 -e bash -lc ~/.casper-task/run.sh >/dev/null 2>&1 &); echo desktop; else echo none; fi`)).trim()
@@ -139,7 +139,7 @@ export const boatAgents = (room: string) => [...boatRunning.entries()].filter(([
 /* ---------- deliver a person's @ to an agent that isn't listening right now ----------
    A summoned agent runs `claude -p` and exits when its job is done. When someone @s it, resume that same
    Claude Code session (--continue) on its computer with the message, so it answers in the room. */
-const TOOLS_ALL = "mcp__casper__read_room,mcp__casper__post,mcp__casper__claim,mcp__casper__tasks,mcp__casper__ring_bell,mcp__casper__check_bell,Read,Edit,Write,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git log:*),Bash(sleep:*)"
+const TOOLS_ALL = "mcp__casper__read_room,mcp__casper__post,mcp__casper__claim,mcp__casper__tasks,mcp__casper__ring_bell,mcp__casper__check_bell,mcp__computer,Read,Edit,Write,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git log:*),Bash(sleep:*)"
 export function deliver(where: { vm?: string; dir?: string }, from: string, text: string, steer: boolean): boolean {
   const msg = `${from} in the room: ${text}${steer ? "\n(${from} marked this as a steer.)" : ""}`
   if (where.vm) {

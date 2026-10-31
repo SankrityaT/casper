@@ -322,12 +322,12 @@ export async function createRoom(slug: string, topic: string, by: string): Promi
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "Couldn't create the room.");
   return r.json();
 }
-export async function shareCall(room: string, transcript: string, by: string) {
+export async function shareCall(room: string, transcript: string, by: string, source = "call") {
   if (!HUB.url) {
     local(room, { kind: "msg", from: "casper", text: "From the call: three tasks are open. Claim one.", meta: { tasks: [{ id: "t1", title: "Build the API" }, { id: "t2", title: "Build the UI" }, { id: "t3", title: "Draft the launch post" }] } });
     return;
   }
-  const r = await fetch(`${HUB.url}/room/${encodeURIComponent(room)}/meeting`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ transcript, by }) });
+  const r = await fetch(`${HUB.url}/room/${encodeURIComponent(room)}/meeting`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ transcript, by, source }) });
   if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "Couldn't read that call.");
 }
 export const mcpCommand = (room: string, agent: string) =>

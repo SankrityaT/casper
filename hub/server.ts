@@ -199,7 +199,8 @@ app.post("/room/:room/meeting", async (c) => {
   const transcript = str(b.transcript, "transcript", 40000)
   const by = typeof b.by === "string" ? b.by : "someone"
   await listed(r)
-  const heard = await room(r).append({ room: r, kind: "msg", from: by, text: `Shared a call transcript (${transcript.split(/\s+/).length} words).`, ts: Date.now(), meta: { transcript: transcript.slice(0, 4000) } })
+  const source = typeof b.source === "string" && b.source ? b.source : "call"
+  const heard = await room(r).append({ room: r, kind: "msg", from: by, text: `Shared the ${source} recording (${transcript.split(/\s+/).length} words). Casper is turning it into tasks.`, ts: Date.now(), meta: { transcript: transcript.slice(0, 4000), source } })
   fanout(r, heard)
   const { summary, tasks } = await meetingToTasks(transcript)
   if (!tasks.length) throw new HTTPError(502, "Couldn't find any agreed tasks in that call.")
