@@ -8,6 +8,8 @@ set -u
 INPUT=$(cat)
 CMD=$(printf %s "$INPUT" | python3 -c 'import sys,json; print((json.load(sys.stdin).get("tool_input") or {}).get("command",""))' 2>/dev/null)
 case "$CMD" in *"git push"*) ;; *) exit 0 ;; esac
+case "$CMD" in *"git commit"*|*"git rebase"*|*"git merge"*|*"git reset"*|*"git am "*)
+  echo "Casper: run the commit on its own first, then 'git push' as a separate command, so the bell asks about the right commit." >&2; exit 2 ;; esac
 HUB=${CASPER_HUB:?}; ROOM=${CASPER_ROOM:?}; AGENT=${CASPER_AGENT:-agent}; FOR=${CASPER_APPROVER:-sankritya}
 SHA=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
 ASK="push-$AGENT-$SHA"
