@@ -6,6 +6,7 @@ import { actors } from "./generated/index.js"
 import type { RoomEvent } from "./src/actors.ts"
 import { meetingToTasks, triage } from "./src/ai.ts"
 import { seal } from "./src/seal.ts"
+import { summon, stop, status } from "./src/summon.ts"
 
 /* The Casper hub: stateless. Every write goes to the room's Terse actor (the source of truth, in order), then fans
    out to the browsers watching that room. Kill this process and restart it: the actor still has the log, the claims,
@@ -164,6 +165,27 @@ app.post("/keys/remove", async (c) => {
   await actors.Keys.get(`keys.${owner(b.owner)}`).remove(String(b.provider))
   return c.json({ ok: true })
 })
+
+/* summon a real Claude Code agent into a room (runs on the hub's machine, in its own worktree) */
+app.post("/room/:room/summon", async (c) => {
+  const r = c.req.param("room"), b = await body(c)
+  const name = str(b.name, "name", 40).toLowerCase().replace(/[^a-z0-9._-]/g, "")
+  if (!name) throw new HTTPError(400, "Name the agent.")
+  const by = typeof b.by === "string" ? b.by : "someone"
+  await listed(r)
+  Bun.spawnSync(["git", "fetch", "-q", "origin", "main"], { cwd: new URL("..", import.meta.url).pathname })
+  const res = summon({ room: r, name, task: str(b.task, "task", 2000), by, hub: `http://127.0.0.1:${process.env.PORT ?? 8790}`, approver: typeof b.approver === "string" ? b.approver : by })
+  const ev = await room(r).append({ room: r, kind: "msg", from: "casper", text: `${by} summoned ${name}. It's a Claude Code agent on its own branch (${res.branch}); it will claim a task, post progress, and ring the bell before it pushes.`, ts: Date.now(), meta: { summoned: name, branch: res.branch, triage: { act: "show", why: "summon" } } })
+  fanout(r, ev)
+  return c.json({ ok: true, ...res })
+})
+app.post("/room/:room/summon/:name/stop", async (c) => {
+  const r = c.req.param("room"), n = c.req.param("name")
+  const ok = stop(r, n)
+  if (ok) { const ev = await room(r).append({ room: r, kind: "msg", from: "casper", text: `Stopped ${n}.`, ts: Date.now(), meta: { triage: { act: "show", why: "stop" } } }); fanout(r, ev) }
+  return c.json({ ok })
+})
+app.get("/room/:room/agents", (c) => c.json(status(c.req.param("room"))))
 
 app.get("/room/:room/events", async (c) => c.json(await room(c.req.param("room")).since(Number(c.req.query("since") ?? 0) || 0)))
 app.get("/room/:room/ask/:id", async (c) => c.json((await room(c.req.param("room")).ask(c.req.param("id"))) ?? { status: "none", decidedBy: null }))
