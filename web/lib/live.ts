@@ -74,14 +74,26 @@ export const HUB = { get url() { return hubUrl(); } };
 
 /* ---------- sources ---------- */
 function connectHub(room: string) {
+  // watch the room straight from its Terse actor: the hub only hands out a short-lived grant
   let ws: WebSocket | null = null, dead = false, wait = 500;
-  const open = () => {
+  const open = async () => {
     if (dead) return;
-    const url = `${HUB.url.replace(/^http/, "ws")}/room/${encodeURIComponent(room)}/socket?since=${state(room).lastSeq}`;
+    let url = "";
+    try {
+      const g = await fetch(`${HUB.url}/room/${encodeURIComponent(room)}/grant?since=${state(room).lastSeq}`, { cache: "no-store" }).then((r) => r.json());
+      url = g.websocketUrl;
+    } catch { /* fall back to the hub's own socket */ }
+    if (!url) url = `${HUB.url.replace(/^http/, "ws")}/room/${encodeURIComponent(room)}/socket?since=${state(room).lastSeq}`;
     ws = new WebSocket(url);
     ws.onopen = () => { wait = 500; setStatus(room, "live"); };
     ws.onmessage = (m) => {
-      try { const d = JSON.parse(String(m.data)); ingest(room, Array.isArray(d) ? d : Array.isArray(d?.events) ? d.events : [d]); } catch { /* ignore a bad frame */ }
+      try {
+        const d = JSON.parse(String(m.data));
+        if (d?.type === "event") ingest(room, [d.event]);
+        else if (d?.type === "events") ingest(room, d.events);
+        else if (d?.type === "state" || d?.type === "state_update") { /* actor state, not needed here */ }
+        else ingest(room, Array.isArray(d) ? d : Array.isArray(d?.events) ? d.events : [d]);
+      } catch { /* ignore a bad frame */ }
     };
     ws.onclose = () => { if (dead) return; setStatus(room, "offline"); setTimeout(open, (wait = Math.min(wait * 2, 8000))); };
   };

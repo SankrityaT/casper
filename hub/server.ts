@@ -348,6 +348,15 @@ app.get("/wing", async (c) => {
   return c.json(body)
 })
 
+/* a grant to watch a room straight from its Terse actor (the browser connects to Terse, not to this hub) */
+app.get("/room/:room/grant", async (c) => {
+  const r = c.req.param("room")
+  if (!ROOM_ID.test(r)) throw new HTTPError(400, "Bad room name.")
+  const g = await actors.Room.prepareWebsocket({ actorId: `room.${r}`, metadata: { who: String(c.req.query("who") ?? "someone").slice(0, 40), since: Number(c.req.query("since") ?? 0) || 0 } } as never)
+  c.header("cache-control", "no-store")
+  return c.json(g)
+})
+
 app.get("/room/:room/events", async (c) => c.json(await room(c.req.param("room")).since(Number(c.req.query("since") ?? 0) || 0)))
 app.get("/room/:room/ask/:id", async (c) => c.json((await room(c.req.param("room")).ask(c.req.param("id"))) ?? { status: "none", decidedBy: null }))
 app.get("/room/:room/summary", async (c) => c.json(await room(c.req.param("room")).summary()))
