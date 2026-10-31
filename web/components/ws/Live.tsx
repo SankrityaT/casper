@@ -512,6 +512,23 @@ export function LiveCanvas({ room }: { room: string }) {
 }
 
 /* The composer for a live room, in the same slot as every room's composer: @ lists this room's agents, Casper and people. */
+/* A recording people can attach from their tools (Zoom shown); Casper transcribes it and turns it into tasks. */
+const ZOOM_CALL = {
+  title: "Zoom meeting · Hush launch sync",
+  sub: "Oct 31 · 2:40 PM · 14 min · Sankritya, Kinjal",
+  transcript: `[00:00:04] Sankritya: Okay, last feature we ship today is Hush.
+[00:00:11] Kinjal: The thing where you mute an agent but it keeps working?
+[00:00:15] Sankritya: Exactly. You hush a chatty agent, it keeps going, its messages get held, and when you unhush you get a short digest.
+[00:00:27] Kinjal: And the hush has to survive a restart, so it lives in the room actor, not in the browser.
+[00:00:34] Sankritya: Right. Scope for today: the Hush button on each agent, the digest card when you unhush, and the API on the hub. No per-thread hush yet.
+[00:01:02] Kinjal: We also need the final two-minute script for the project video, and the README should explain Hush in plain words.
+[00:01:15] Sankritya: And someone should look at the live app and design the Hush button and the digest card so it actually looks good.
+[00:01:22] Kinjal: So four jobs: design it, build it, write the video script, update the README.
+[00:01:30] Sankritya: Let the agents take them. Anything that pushes to main asks me first.
+[00:01:36] Kinjal: And nothing gets posted publicly without asking me.
+[00:01:40] Sankritya: Deal. Ship it today.`,
+};
+
 export function LiveComposer({ room }: { room: string }) {
   const s = useLive(room);
   const [draft, setDraft] = useState("");
@@ -523,15 +540,37 @@ export function LiveComposer({ room }: { room: string }) {
     ...["sankritya", "kinjal"].filter((h) => h !== me()).map((h) => ({ handle: h, name: nameOf(h), sub: "person", color: P[h as Id]?.color, face: nameOf(h)[0] })),
   ];
   const mention = draft.match(/@([\w.-]+)/)?.[1]?.toLowerCase();
+  const [menu, setMenu] = useState(false);
+  const [att, setAtt] = useState<typeof ZOOM_CALL | null>(null);
   return (
     <>
+      {menu && (
+        <div className="lv-attach">
+          <div className="hd">Attach from your tools</div>
+          <button onClick={() => { setAtt(ZOOM_CALL); setMenu(false); }}>
+            <span className="zoom">Z</span><span><b>{ZOOM_CALL.title}</b><small>{ZOOM_CALL.sub}</small></span>
+          </button>
+        </div>
+      )}
+      {att && (
+        <div className="lv-pending"><span className="zoom">Z</span><span><b>{att.title}</b><small>{att.sub} · Casper will transcribe it</small></span><button className="x" onClick={() => setAtt(null)} aria-label="Remove">×</button></div>
+      )}
+      <button className={`lv-attach-btn ${menu ? "on" : ""}`} onClick={() => setMenu(!menu)} title="Attach a recording">+ Attach</button>
       {mention && mention !== "casper" && here.includes(mention) && (
         <label className={`lv-steer ${steer ? "on" : ""}`} title="Steer lands on the agent's very next step. Otherwise it waits until the agent finishes what it's doing.">
           <input type="checkbox" checked={steer} onChange={(e) => setSteer(e.target.checked)} />Steer @{mention} now (interrupt its current step)
         </label>
       )}
-      <Composer value={draft} set={setDraft} noAttach people={mentionable} placeholder={`Message #${room}. Type @ to ask ${here.length ? "an agent or Casper" : "Casper"}`}
-        onSend={(t) => { const to = t.match(/@([\w.-]+)/)?.[1]?.toLowerCase(); post(room, me(), t.trim(), to ? { to, mode: steer ? "steer" : "wait" } : undefined); setSteer(false); }} />
+      <Composer value={draft} set={setDraft} noAttach allowEmpty={!!att} people={mentionable} placeholder={att ? "Add a note, or just send" : `Message #${room}. Type @ to ask ${here.length ? "an agent or Casper" : "Casper"}`}
+        onSend={(t) => {
+          if (att) {
+            const a = att; setAtt(null);
+            if (t.trim()) post(room, me(), t.trim(), { history: true });
+            shareCall(room, a.transcript, me(), "Zoom").catch(() => {});
+            return;
+          }
+          const to = t.match(/@([\w.-]+)/)?.[1]?.toLowerCase(); post(room, me(), t.trim(), to ? { to, mode: steer ? "steer" : "wait" } : undefined); setSteer(false);
+        }} />
     </>
   );
 }

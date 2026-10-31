@@ -46,13 +46,13 @@ async function roomAgents(r: string) {
   const names = [...new Set(evs.map((e) => e.from.toLowerCase().split("#")[0]).filter((n) => !HUMANS.has(n) && n !== "casper" && n !== "stretch"))]
   return { evs, vms, names }
 }
-async function autoSummon(r: string, task: string, by: string) {
+async function autoSummon(r: string, task: string, by: string, title?: string) {
   const { names } = await roomAgents(r)
   const taken = reserved.get(r) ?? new Set<string>(); reserved.set(r, taken)
   const name = NAMES.find((n) => !names.includes(n) && !taken.has(n)) ?? `agent${Date.now().toString(36).slice(-3)}`
   taken.add(name)
   const say = async (text: string, meta?: Record<string, unknown>) => { const ev = await room(r).append({ room: r, kind: "computer", from: name, text, ts: Date.now(), meta: { agent: name, ...(meta ?? {}) } }); fanout(r, ev) }
-  const hello = await room(r).append({ room: r, kind: "msg", from: "stretch", text: `Starting ${name} on its own computer for: ${task}`, ts: Date.now(), meta: { triage: { act: "show", why: "dispatch" } } })
+  const hello = await room(r).append({ room: r, kind: "msg", from: "casper", text: `@${name} you're on "${title ?? task}". Spinning up your computer now.`, ts: Date.now(), meta: { to: name, triage: { act: "show", why: "dispatch" } } })
   fanout(r, hello)
   summonOnBoat({ room: r, name, task, by, approver: HUMANS.has(by) ? by : "sankritya", hub: "", publicHub: process.env.HUB_PUBLIC_URL ?? "" }, say)
     .catch((e) => say(`I couldn't get my computer ready (${(e as Error).message}).`))
@@ -217,7 +217,7 @@ app.post("/room/:room/meeting", async (c) => {
       const n = p.agent?.toLowerCase()
       if (n && names.includes(n) && deliver({ vm: vms.get(n), dir: localDir(r, n) }, by, `New task from the call, please claim it: "${task}"`, false)) {
         const x = await room(r).append({ room: r, kind: "msg", from: "stretch", text: `${n}, you're up for "${task}".`, ts: Date.now(), meta: { to: n, triage: { act: "show", why: "dispatch" } } }); fanout(r, x)
-      } else if (started < AUTO_MAX_NEW) { started++; void autoSummon(r, `Claim and do the task "${task}" from the call. Call summary: ${summary}`, by) }
+      } else if (started < AUTO_MAX_NEW) { started++; void autoSummon(r, `Claim and do the task "${task}" from the call. Call summary: ${summary}`, by, task) }
     }
   })().catch((e) => console.warn("assign", e))
   return c.json(out)
