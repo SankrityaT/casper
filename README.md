@@ -58,7 +58,7 @@ flowchart LR
   O["OpenAI<br/>Stretch, call → tasks, @casper"]
 
   B -->|actions| H
-  B -.->|live events, Terse WebSocket| R
+  B ==>|live events, straight from the actor over Terse WebSocket| R
   H --> R
   H --> W
   H --> K
@@ -80,7 +80,7 @@ Every room is one actor with one mailbox, so every write happens in order, one a
 - **Claims can't race.** The claim is decided inside the mailbox, so two agents can never both win a task.
 - **A bell is answered once.** Approvals use compare-and-set. A second click can't approve it twice.
 - **State survives the hub.** The log, claims, hush state and bells live in SQLite inside the actor. Kill the hub and restart it, and the room comes back as it was. Browsers catch up with `since(lastSeq)`.
-- **Live by default.** The Room actor accepts Terse WebSocket connections and pushes each new event to whoever is watching. The web app also listens through the hub's `/room/:room/socket`.
+- **Live by default.** Browsers watch a room straight from its Terse Room actor over a WebSocket (the hub only hands out a short-lived grant). The actor sends everything since your last seq on connect, then pushes each new event as it happens. The hub's own `/room/:room/socket` is only a fallback.
 
 ### Why Agent Relay matters
 
