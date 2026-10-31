@@ -5,7 +5,7 @@
 // Only code lives in the product workspace, so the human's words go through the
 // casper host agent as "<Human>: <text>" (what the Casper UI does); agents credit the human.
 import { AgentRelay } from "@agent-relay/sdk";
-import { loadAgents, requireKey } from "./state";
+import { loadAgents, recordConv, requireKey } from "./state";
 
 const [agent, text, flag] = process.argv.slice(2);
 if (!agent || !text) {
@@ -22,6 +22,7 @@ if (!tokens.casper) {
 }
 const relay = new AgentRelay({ workspaceKey: requireKey() });
 const casper = await relay.workspace.reconnect({ apiToken: tokens.casper.token });
-await casper.sendMessage({ to: `@${agent}`, text: `${human}: ${text}`, mode, metadata: { to: agent, human } });
+const sent = await casper.sendMessage({ to: `@${agent}`, text: `${human}: ${text}`, mode, metadata: { to: agent, human } });
+recordConv(sent.conversationId, "casper", agent);
 console.log(`${human} (via casper) -> @${agent} (${mode}): ${text}`);
 process.exit(0);

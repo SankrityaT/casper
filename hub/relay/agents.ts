@@ -10,7 +10,7 @@ import { AgentRelay, type RelayAgentClient } from "@agent-relay/sdk";
 import { type Action, type Think } from "./brain";
 import { thinkClaude } from "./brain-claude";
 import { thinkOpenAI } from "./brain-openai";
-import { DM_ROOM, loadAgents, loadObserver, requireKey, roomChannel } from "./state";
+import { DM_ROOM, loadAgents, loadObserver, recordConv, requireKey, roomChannel } from "./state";
 import { TASKS, claim, loadClaims, postToHub, taskById } from "./tasks";
 
 const BASE_URL = (process.env.RELAY_BASE_URL ?? "https://cast.agentrelay.com").replace(/\/$/, "");
@@ -156,7 +156,8 @@ class Agent {
 
   async send(to: string, text: string, metadata: Record<string, unknown>) {
     try {
-      await this.client.sendMessage({ to, text, metadata: { ...metadata, room: ROOM } });
+      const sent = await this.client.sendMessage({ to, text, metadata: { ...metadata, room: ROOM } });
+      if (to.startsWith("@")) recordConv(sent.conversationId, this.p.name, to.slice(1));
       this.history.push(`${this.p.name}${to.startsWith("@") ? ` -> ${to}` : ""}: ${text}`);
       console.log(`${this.p.name} -> ${to}: ${text}`);
     } catch (err) {

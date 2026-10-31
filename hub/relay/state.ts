@@ -89,3 +89,16 @@ export async function publish(event: CasperEvent) {
     console.warn("hub post failed:", (err as Error).message);
   }
 }
+
+/** DM conversation participants, recorded by whoever sends (the event log drops DM recipients). */
+type Convs = Record<string, string[]>;
+export function recordConv(conversationId: string | undefined, a: string, b: string) {
+  if (!conversationId) return;
+  const convs = readJson<Convs>("convs.json") ?? {};
+  convs[conversationId] = [...new Set([...(convs[conversationId] ?? []), a, b])];
+  writeJson("convs.json", convs);
+}
+export function convPeer(conversationId: string | undefined, from: string): string | undefined {
+  if (!conversationId) return undefined;
+  return (readJson<Convs>("convs.json") ?? {})[conversationId]?.find((n) => n !== from);
+}

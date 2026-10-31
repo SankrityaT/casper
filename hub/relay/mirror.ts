@@ -11,6 +11,7 @@
 import { AgentRelay } from "@agent-relay/sdk";
 import {
   DM_ROOM,
+  convPeer,
   channelRoom,
   loadCursor,
   loadObserver,
@@ -66,6 +67,13 @@ async function emit(n: Normalized) {
   if (seen.has(n.messageId)) return;
   seen.add(n.messageId);
   const isDm = n.type === "dm.received" || n.type === "group_dm.received";
+  // DM events carry no recipient; senders record conversation participants (state.ts recordConv).
+  if (isDm && !n.to) n.to = convPeer(n.conversationId, n.from);
+  // casper relays humans as "Name: text"; credit the human on the room side.
+  if (isDm && n.from === "casper") {
+    const m = /^([A-Za-z][\w-]*):\s+([\s\S]*)$/.exec(n.text);
+    if (m) [n.from, n.text] = [m[1].toLowerCase(), m[2]];
+  }
   counters.total++;
   // "Reached a human": room posts (visible in the Casper room) and DMs to/from a human.
   // Agent<->agent DMs stay backstage. DM events carry no recipient, so metadata.to is best-effort.
