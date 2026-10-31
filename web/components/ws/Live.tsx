@@ -548,12 +548,12 @@ export function LiveComposer({ room }: { room: string }) {
         <div className="lv-attach">
           <div className="hd">Attach from your tools</div>
           <button onClick={() => { setAtt(ZOOM_CALL); setMenu(false); }}>
-            <span className="zoom">Z</span><span><b>{ZOOM_CALL.title}</b><small>{ZOOM_CALL.sub}</small></span>
+            <span className="zm">Z</span><span><b>{ZOOM_CALL.title}</b><small>{ZOOM_CALL.sub}</small></span>
           </button>
         </div>
       )}
       {att && (
-        <div className="lv-pending"><span className="zoom">Z</span><span><b>{att.title}</b><small>{att.sub} · Casper will transcribe it</small></span><button className="x" onClick={() => setAtt(null)} aria-label="Remove">×</button></div>
+        <div className="lv-pending"><span className="zm">Z</span><span><b>{att.title}</b><small>{att.sub} · Casper will transcribe it</small></span><button className="x" onClick={() => setAtt(null)} aria-label="Remove">×</button></div>
       )}
       <button className={`lv-attach-btn ${menu ? "on" : ""}`} onClick={() => setMenu(!menu)} title="Attach a recording">+ Attach</button>
       {mention && mention !== "casper" && here.includes(mention) && (
