@@ -3,6 +3,11 @@
 // converts it to the Casper event shape (kind:"relay") and appends it to out.jsonl.
 // If HUB_URL is set it also POSTs each event to ${HUB_URL}/relay/mirror.
 // The seq cursor is persisted so a restart resumes with sinceSeq (no gaps, no dupes).
+//
+// Two sources, one cursor:
+//  - live: SDK observer stream (relay.addListener) over /v1/ws
+//  - poll: REST GET /v1/workspace/events?since_seq=… (the same durable log the SDK backfills from)
+// MIRROR_MODE=auto (default) starts live and drops to poll if the socket fails.
 import { AgentRelay } from "@agent-relay/sdk";
 import {
   DM_ROOM,
@@ -21,38 +26,69 @@ if (!observer) {
   process.exit(1);
 }
 
-let seq = loadCursor();
-console.log(`mirror starting from seq ${seq}`);
-
-const relay = new AgentRelay({
-  observerToken: observer.token,
-  sinceSeq: seq,
-  onCursor: (next) => {
-    seq = next;
-    saveCursor(next);
-  },
-  onError: (err, ctx) => {
-    console.error("relay error", ctx, (err as Error)?.message ?? err);
-    // Stream connect/backfill failures kill the observer source. Exit non-zero so
-    // run-mirror.sh restarts us; the persisted cursor means nothing is lost or duplicated.
-    if (ctx?.selector === "events.connect") {
-      saveCursor(seq);
-      setTimeout(() => process.exit(1), 100);
-    }
-  },
-});
-
-// Keep the process alive between events.
-setInterval(() => {}, 60_000);
-
-const counters = { total: 0, toHuman: 0 };
+const BASE_URL = (process.env.RELAY_BASE_URL ?? "https://cast.agentrelay.com").replace(/\/$/, "");
+const MODE = (process.env.MIRROR_MODE ?? "auto") as "auto" | "live" | "poll";
+const POLL_MS = Number(process.env.MIRROR_POLL_MS ?? 1500);
 const HUMANS = new Set((process.env.CASPER_HUMANS ?? "kinjal,sankritya").split(","));
 
-async function emit(event: CasperEvent) {
-  appendOut(event);
+let seq = loadCursor();
+const seen = new Set<string>();
+const counters = { total: 0, toHuman: 0 };
+
+function advance(next: number) {
+  if (next > seq) {
+    seq = next;
+    saveCursor(next);
+  }
+}
+
+// Branch on event TYPE, not message.kind: DM readback kind is unreliable.
+const MESSAGE_TYPES = ["message.created", "thread.reply", "dm.received", "group_dm.received"] as const;
+type MessageType = (typeof MESSAGE_TYPES)[number];
+const isMessageType = (t: string): t is MessageType => (MESSAGE_TYPES as readonly string[]).includes(t);
+
+interface Normalized {
+  type: MessageType;
+  seq?: number;
+  messageId: string;
+  from: string;
+  text: string;
+  ts?: string;
+  channel?: string;
+  conversationId?: string;
+  to?: string;
+  threadId?: string;
+  mode?: string;
+}
+
+async function emit(n: Normalized) {
+  if (seen.has(n.messageId)) return;
+  seen.add(n.messageId);
+  const isDm = n.type === "dm.received" || n.type === "group_dm.received";
   counters.total++;
-  if (event.meta.to && HUMANS.has(String(event.meta.to))) counters.toHuman++;
-  console.log(`[${event.room}] ${event.from} -> ${event.meta.to ?? event.meta.channel}: ${event.text.slice(0, 120)}`);
+  if (n.to && HUMANS.has(n.to)) counters.toHuman++;
+
+  const event: CasperEvent = {
+    seq: n.seq ?? seq,
+    room: isDm ? DM_ROOM : channelRoom(n.channel) ?? n.channel ?? DM_ROOM,
+    kind: "relay",
+    from: n.from,
+    text: n.text,
+    ts: n.ts ?? new Date().toISOString(),
+    meta: {
+      type: n.type,
+      messageId: n.messageId,
+      channel: isDm ? undefined : n.channel,
+      conversationId: n.conversationId,
+      to: n.to,
+      threadId: n.threadId,
+      mode: n.mode,
+      counters: { ...counters },
+    },
+  };
+  appendOut(event);
+  console.log(`[${event.room}] #${event.seq} ${event.from} -> ${n.to ?? n.channel ?? "dm"}: ${event.text.slice(0, 100)}`);
+
   if (!HUB_URL) return;
   try {
     const res = await fetch(`${HUB_URL}/relay/mirror`, {
@@ -66,38 +102,90 @@ async function emit(event: CasperEvent) {
   }
 }
 
-// Branch on event TYPE, not message.kind: DM readback kind is unreliable.
-const MESSAGE_TYPES = ["message.created", "thread.reply", "dm.received", "group_dm.received"] as const;
+// ---------- poll source ----------
+let polling = false;
+async function startPolling() {
+  if (polling) return;
+  polling = true;
+  console.log(`poll mode from seq ${seq} every ${POLL_MS}ms`);
+  while (true) {
+    try {
+      const res = await fetch(`${BASE_URL}/v1/workspace/events?since_seq=${seq}&limit=100`, {
+        headers: { Authorization: `Bearer ${observer!.token}` },
+      });
+      if (res.ok) {
+        const body = (await res.json()) as { data: { events: any[]; latest_seq: number } };
+        for (const e of body.data.events) {
+          if (isMessageType(e.type) && e.payload?.message) {
+            const m = e.payload.message;
+            const ch = e.payload.channel;
+            await emit({
+              type: e.type,
+              seq: e.seq,
+              messageId: m.id,
+              from: m.agent_name ?? "unknown",
+              text: m.text ?? "",
+              ts: e.payload.created_at ?? e.created_at,
+              channel: typeof ch === "string" ? ch : ch?.name,
+              conversationId: e.payload.conversation_id,
+              to: e.payload.to?.agent_name ?? e.payload.recipient?.agent_name,
+              threadId: e.payload.thread_id ?? e.payload.parent_id,
+              mode: m.injection_mode,
+            });
+          }
+          advance(e.seq);
+        }
+        if (body.data.events.length === 100) continue; // more pages waiting
+      } else {
+        console.warn(`poll HTTP ${res.status}`);
+      }
+    } catch (err) {
+      console.warn("poll failed:", (err as Error).message);
+    }
+    await Bun.sleep(POLL_MS);
+  }
+}
 
-for (const type of MESSAGE_TYPES) {
-  relay.addListener(type, async ({ message, envelope }) => {
-    const from = envelope.from?.name ?? message.from?.name ?? "unknown";
-    const isDm = type === "dm.received" || type === "group_dm.received";
-    const channel = envelope.channel?.name ?? message.channel?.name;
-    const target = envelope.to ?? message.target;
-    const to =
-      target?.kind === "agent" ? target.agentName : target?.kind === "channel" ? `#${target.channelName}` : undefined;
+// ---------- live source ----------
+function startLive() {
+  console.log(`live mode from seq ${seq}`);
+  const relay = new AgentRelay({
+    observerToken: observer!.token,
+    sinceSeq: seq,
+    onCursor: advance,
+    onError: (err, ctx) => {
+      console.error("relay error", ctx?.selector, (err as Error)?.message ?? err);
+      if (ctx?.selector === "events.connect") {
+        if (MODE === "auto") startPolling();
+        else setTimeout(() => process.exit(1), 100); // run-mirror.sh restarts us
+      }
+    },
+  });
 
-    await emit({
-      seq,
-      room: isDm ? DM_ROOM : channelRoom(channel) ?? channel ?? DM_ROOM,
-      kind: "relay",
-      from,
-      text: message.text ?? "",
-      ts: message.createdAt ?? new Date().toISOString(),
-      meta: {
+  for (const type of MESSAGE_TYPES) {
+    relay.addListener(type, async ({ message, envelope }) => {
+      if (polling) return; // poll source owns emission once we've fallen back
+      const target = envelope.to ?? message.target;
+      await emit({
         type,
         messageId: message.messageId ?? message.id,
-        channel: isDm ? undefined : channel,
+        from: envelope.from?.name ?? message.from?.name ?? "unknown",
+        text: message.text ?? "",
+        ts: message.createdAt,
+        channel: envelope.channel?.name ?? message.channel?.name,
         conversationId: message.conversationId,
-        to,
+        to: target?.kind === "agent" ? String(target.agentName) : undefined,
         threadId: message.threadId ?? envelope.parent,
-        mode: message.mode,
-        counters: { ...counters },
-      },
+        mode: message.mode as string | undefined,
+      });
     });
-  });
+  }
 }
+
+if (MODE === "poll") startPolling();
+else startLive();
+
+setInterval(() => {}, 60_000); // keep alive between events
 
 process.on("SIGINT", () => {
   saveCursor(seq);
