@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { knock } from "@/lib/agents";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Agent, { type AgentKind, type Mood } from "@/components/Agent";
@@ -64,7 +65,7 @@ function Flow() {
   const voice = VOICES.find((v) => v.id === s.voice)!;
   const cmd = s.agent.runsOn === "Its own computer"
     ? `# Nothing to run. Casper is starting ${s.agent.name}’s computer…`
-    : `npx casper knock ${s.room} --as ${s.agent.name.toLowerCase()}`;
+    : knock(s.room, s.agent.name.toLowerCase());
 
   return (
     <main className="grid h-svh min-h-[700px] grid-cols-1 overflow-hidden bg-night md:grid-cols-[minmax(460px,46%)_1fr]">

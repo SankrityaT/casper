@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { knock } from "@/lib/agents";
+import { HUB, me } from "@/lib/live";
 import Agent from "@/components/Agent";
 import Brand, { type BrandName } from "@/components/ui/Brand";
 import Select from "@/components/ws/Select";
@@ -27,7 +29,7 @@ const Head = ({ title, sub, right }: { title: string; sub?: string; right?: Reac
 );
 
 /* ---------- the bell ---------- */
-export function BellPage({ ask, onApprove, goRoom }: { ask: Ev["ask"] | null; onApprove: () => void; goRoom: (r: string) => void }) {
+export function BellPage({ ask, onApprove, goRoom, live }: { ask: Ev["ask"] | null; onApprove: () => void; goRoom: (r: string) => void; live?: React.ReactNode }) {
   const [past, setPast] = useState(BELL_PAST);
   const answer = (i: number, done: string) => setPast((p) => p.map((x, k) => (k === i ? { ...x, done } : x)));
   const open = past.filter((p) => !p.done);
@@ -36,6 +38,7 @@ export function BellPage({ ask, onApprove, goRoom }: { ask: Ev["ask"] | null; on
       <Head title="The bell" sub={`${(ask ? 1 : 0) + open.length} waiting`} />
       <div className="sc"><div className="sec">
         <p className="lead">Everything an agent is waiting on a person for. Oldest first, each with the evidence.</p>
+        {live}
         <h3>Waiting</h3>
         <div className="group">
           {ask && (
@@ -84,7 +87,7 @@ export function AgentsPage({ open, speaking }: { open: (id: Id) => void; speakin
         <h3>House crew <span>{CREW.length}</span></h3>
         <div className="agrid">{CREW.map((id) => card(id, id === "stretch" ? "Dispatch" : id === "fatso" ? "Library" : "Watch"))}</div>
         <h3>Bring your own</h3>
-        <div className="cmd"><span>npx casper knock engineering --as yourname</span><button className="pill" onClick={(e) => ((e.target as HTMLElement).textContent = "Copied")}>Copy</button></div>
+        <div className="cmd"><span>{knock("autopay", "yourname")}</span><button className="pill" onClick={(e) => { navigator.clipboard?.writeText(knock("autopay", "yourname")); (e.target as HTMLElement).textContent = "Copied"; }}>Copy</button></div>
       </div></div>
     </section>
   );
@@ -299,14 +302,17 @@ function KeyRow({ prov, saved, onSave }: { prov: Prov; saved: string | null; onS
     const k = val.trim();
     if (!k.startsWith(c.prefix) || k.length < 20) { setErr(`That doesn’t look like an ${c.name} key. It starts with ${c.prefix}`); return; }
     setChecking(true); setErr("");
-    // The key itself is never kept in the page: only a masked tail. The hub stores it encrypted (CASPER_SECRETS_KEY).
-    setTimeout(() => { onSave(`${c.prefix}…${k.slice(-4)}`); setVal(""); setOpen(false); setChecking(false); }, 700);
+    // The key never stays in the page: the hub checks it with the provider, seals it (CASPER_SECRETS_KEY) and returns a masked tail.
+    if (!HUB.url) { setTimeout(() => { onSave(`${c.prefix}…${k.slice(-4)}`); setVal(""); setOpen(false); setChecking(false); }, 700); return; }
+    fetch(`${HUB.url}/keys`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ owner: me(), provider: prov, key: k }) })
+      .then(async (r) => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error ?? "Couldn't save that key."); onSave(j.masked); setVal(""); setOpen(false); })
+      .catch((e) => setErr((e as Error).message)).finally(() => setChecking(false));
   };
   return (
     <div className="gr" style={{ flexWrap: "wrap" }}>
       <span className="kl"><img src={c.logo} alt="" /></span>
       <div className="grow"><b>{c.name}</b><small>{saved ? <span className="mono">{saved}</span> : c.sub}</small></div>
-      {saved ? <><Dot c={G} t="Working" /><button className="pill" onClick={() => onSave(null)}>Remove</button></>
+      {saved ? <><Dot c={G} t="Working" /><button className="pill" onClick={() => { if (HUB.url) fetch(`${HUB.url}/keys/remove`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ owner: me(), provider: prov }) }); onSave(null); }}>Remove</button></>
         : !open && <button className="pill white" onClick={() => setOpen(true)}>Add key</button>}
       {open && !saved && (
         <form className="keyin" onSubmit={(e) => { e.preventDefault(); save(); }}>
@@ -368,6 +374,12 @@ function ClaudeSubRow({ onChange }: { onChange: (on: boolean) => void }) {
 }
 function YourAI() {
   const [keys, setKeys] = useState<Record<Prov, string | null>>({ anthropic: null, openai: null });
+  useEffect(() => {
+    if (!HUB.url) return;
+    fetch(`${HUB.url}/keys?owner=${encodeURIComponent(me())}`).then((r) => r.json()).then((list: { provider: Prov; masked: string }[]) => {
+      if (Array.isArray(list)) setKeys((k) => ({ ...k, ...Object.fromEntries(list.map((x) => [x.provider, x.masked])) }));
+    }).catch(() => {});
+  }, []);
   const [jack, setJack] = useState("laptop");
   const [wick, setWick] = useState("anthropic");
   const [sub, setSub] = useState(false);

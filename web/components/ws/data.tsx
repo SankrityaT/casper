@@ -130,6 +130,7 @@ export const THREAD_OF: Record<number, number> = { 5: 4, 6: 4 };
 export type Msg = { who: Id; text: string; at: string };
 export const ROOMS: Record<string, { topic: string; msgs: Msg[]; cards: { k: string; t: string; by?: Id }[] }> = {
   "autopay-launch": { topic: "Ship autopay and announce it Thursday", msgs: [], cards: [] },
+  autopay: { topic: "Live: the agents ship autopay over Relay", msgs: [], cards: [] },
   "refunds-v2": {
     topic: "Faster refunds with a second yes over $500",
     msgs: [
@@ -258,7 +259,7 @@ export function applySession(s: { agent: { name: string; kind: AgentKind; runsOn
     const t = swap(ORIG.script[i]);
     e.text = e.who === "jack" ? inVoice(t, s.voice) : t;
   });
-  Object.entries(ROOMS).forEach(([k, r]) => r.msgs.forEach((m, i) => (m.text = swap(ORIG.rooms[k][i]))));
+  Object.entries(ROOMS).forEach(([k, r]) => r.msgs.forEach((m, i) => { const o = ORIG.rooms[k]?.[i]; if (o !== undefined) m.text = swap(o); }));
   void ORIG.name;
   void ORIG.kind;
 }

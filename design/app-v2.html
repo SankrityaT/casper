@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Casper · #autopay-launch</title>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#141413; --rail:#121211; --side:#171716; --panel:#191918; --card:#1e1e1c; --card-2:#252523; --hover:#222220; --sel:#2a2a27;
+    --line:#262624; --line-2:#33332f;
+    --ink:#ededeb; --ink-2:#a8a8a3; --ink-3:#73736e;
+    --pumpkin:#f58a33; --pumpkin-wash:rgba(245,138,51,.1); --violet:#9b87ff; --green:#58c47e; --amber:#e9b949;
+    --font:Satoshi,ui-sans-serif,system-ui,sans-serif; --mono:"Geist Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:400 14px/1.5 var(--font);-webkit-font-smoothing:antialiased;overflow:hidden}
+  button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;padding:0}
+  .ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+  .app{display:grid;grid-template-columns:56px 248px 1fr 360px;height:100vh;min-width:1280px}
+  .app.noinsp{grid-template-columns:56px 248px 1fr 0}
+
+  /* ---------- rail ---------- */
+  .rail{background:var(--rail);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:4px}
+  .rail button{position:relative;width:38px;height:38px;border-radius:10px;display:grid;place-items:center;color:var(--ink-3)}
+  .rail button:hover{color:var(--ink);background:var(--hover)}
+  .rail button.on{color:var(--ink);background:var(--sel)}
+  .rail button .dot{position:absolute;right:7px;top:7px;width:7px;height:7px;border-radius:50%;background:var(--pumpkin);box-shadow:0 0 0 2px var(--rail)}
+  .rail .logo{width:34px;height:34px;margin-bottom:10px}
+  .rail .grow{flex:1}
+
+  /* ---------- side ---------- */
+  .side{background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:12px 10px;min-width:0}
+  .space{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:9px;font:700 16px var(--font)}
+  .space:hover{background:var(--hover)}
+  .space .sq{width:24px;height:24px;border-radius:7px;background:#3b8a52;display:grid;place-items:center;font:700 12px var(--font);color:#fff}
+  .space svg{color:var(--ink-3)}
+  .acts{display:flex;gap:6px;margin:12px 0 16px;padding:0 2px}
+  .pill{height:32px;border-radius:9px;border:1px solid var(--line-2);display:inline-flex;align-items:center;gap:6px;padding:0 11px;font:500 13px var(--font);color:var(--ink)}
+  .pill:hover{background:var(--hover)}
+  .pill.white{background:var(--ink);color:#141413;border-color:var(--ink)}
+  .pill.white:hover{background:#fff}
+  .pill.orange{background:var(--pumpkin);border-color:var(--pumpkin);color:#1b1206}
+  .lbl{color:var(--ink-3);font-size:12.5px;padding:0 8px;margin:10px 0 4px;display:flex;justify-content:space-between}
+  .nav a{display:flex;align-items:center;gap:9px;height:34px;padding:0 8px;border-radius:9px;color:var(--ink-2);text-decoration:none;font-size:14px;white-space:nowrap}
+  .nav a:hover{background:var(--hover);color:var(--ink)}
+  .nav a.on{background:var(--sel);color:var(--ink)}
+  .nav a .h{color:var(--ink-3);font-size:13px;width:12px;text-align:center}
+  .nav a .badge{margin-left:auto;font:700 11px var(--font);background:var(--pumpkin);color:#1b1206;border-radius:99px;padding:0 7px;line-height:18px}
+  .nav a .av{width:24px;height:24px;flex:none}
+  .nav a small{color:var(--ink-3);font-size:12px;overflow:hidden;text-overflow:ellipsis}
+  .nav a .st{margin-left:auto;width:7px;height:7px;border-radius:50%;flex:none}
+  .me{margin-top:auto;display:flex;align-items:center;gap:9px;padding:8px;border-radius:9px}
+  .me:hover{background:var(--hover)}
+  .pf{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:700 11px var(--font);color:#fff;flex:none}
+  .me b{display:block;font-size:13.5px;font-weight:500}.me small{color:var(--ink-3);font-size:12px}
+
+  /* ---------- main ---------- */
+  .main{display:grid;grid-template-rows:56px minmax(0,1fr);min-height:0;min-width:0;position:relative}
+  .head{display:flex;align-items:center;gap:12px;padding:0 18px;border-bottom:1px solid var(--line)}
+  .head h1{font:700 16px var(--font);margin:0;display:flex;align-items:center;gap:6px}
+  .head h1 span{color:var(--ink-3);font-weight:500}
+  .faces{display:flex;margin-left:4px}
+  .faces>*{margin-left:-6px;border:2px solid var(--bg)}
+  .faces .pf{width:24px;height:24px;font-size:10px}
+  .faces .a{width:24px;height:24px;border-radius:50%;background:var(--card-2);overflow:hidden}
+  .seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px;margin-left:auto}
+  .seg button{height:26px;padding:0 12px;border-radius:7px;font:500 13px var(--font);color:var(--ink-3)}
+  .seg button.on{background:var(--sel);color:var(--ink)}
+  .head .icb{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--ink-3)}
+  .head .icb:hover{background:var(--hover);color:var(--ink)}
+
+  /* canvas */
+  .cv{position:relative;overflow:hidden;background:radial-gradient(circle at 1px 1px,rgba(255,255,255,.055) 1px,transparent 1.3px) 0 0/24px 24px}
+  .cv svg.wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .n{position:absolute;background:var(--card);border:1px solid var(--line-2);border-radius:14px;padding:12px 14px;cursor:pointer;transition:border-color .15s}
+  .n:hover{border-color:#45453f}
+  .n .k{color:var(--ink-3);font-size:12px;display:flex;align-items:center;gap:6px}
+  .n .t{font:700 14.5px var(--font);margin-top:2px}
+  .n .by{display:flex;align-items:center;gap:7px;margin-top:9px;color:var(--ink-2);font-size:13px}
+  .n .by .av{width:20px;height:20px}
+  .n ul{margin:6px 0 0;padding-left:16px;color:var(--ink-2);font-size:13px}.n li{margin:2px 0}
+  .n.need{border-color:rgba(245,138,51,.55);box-shadow:0 0 0 4px rgba(245,138,51,.07)}
+  .n.need .k{color:var(--pumpkin)}
+  .n.sel{border-color:var(--ink-2)}
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex:none}
+
+  .agent{position:absolute;display:flex;flex-direction:column;align-items:center;cursor:pointer}
+  .agent .fig{width:92px;height:110px}
+  .agent .tag{margin-top:-2px;display:flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line-2);border-radius:99px;padding:3px 10px 3px 8px;font:500 12.5px var(--font);white-space:nowrap}
+  .agent .tag small{color:var(--ink-3)}
+  .agent.sel .tag{border-color:var(--ink-2)}
+  .agent .doing{margin-top:5px;color:var(--ink-3);font:400 11.5px var(--mono);white-space:nowrap}
+
+  .pc{position:absolute;background:#0f0f0e;border:1px solid var(--line-2);border-radius:12px;overflow:hidden}
+  .pc .bar{height:24px;display:flex;align-items:center;gap:5px;padding:0 9px;border-bottom:1px solid var(--line);color:var(--ink-3);font-size:11px}
+  .pc .bar i{width:6px;height:6px;border-radius:50%;background:var(--line-2)}
+  .pc .bar .live{margin-left:auto;display:flex;align-items:center;gap:5px;color:var(--green)}
+  .pc pre{margin:0;padding:9px 11px;font:400 11px/1.65 var(--mono);color:var(--ink-2)}
+  .pc pre b{color:var(--pumpkin);font-weight:500}.pc pre em{color:var(--green);font-style:normal}
+
+  .msg{position:absolute;font:500 12px var(--font);color:#cfc6ff;background:rgba(155,135,255,.1);border:1px solid rgba(155,135,255,.35);border-radius:99px;padding:3px 10px;white-space:nowrap}
+  .wall{position:absolute;right:16px;top:14px;color:var(--ink-3);font-size:12px;display:flex;gap:6px;align-items:center}
+
+  .tools{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);display:flex;gap:2px;background:var(--card);border:1px solid var(--line-2);border-radius:13px;padding:4px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .tools button{height:34px;padding:0 12px;border-radius:9px;color:var(--ink-2);font:500 13px var(--font);display:flex;align-items:center;gap:7px}
+  .tools button:hover{background:var(--hover);color:var(--ink)}
+  .tools button.on{background:var(--sel);color:var(--ink)}
+  .tools kbd{font:400 11px var(--mono);color:var(--ink-3)}
+
+  /* chat */
+  .chat{display:none;overflow:auto;padding:28px 0 140px}
+  .main.chatmode .cv{display:none}.main.chatmode .chat{display:block}
+  .thread{max-width:720px;margin:0 auto;padding:0 28px}
+  .m{display:flex;gap:12px;padding:12px 0}
+  .m .av{width:36px;height:36px;flex:none;border-radius:10px;overflow:hidden;background:var(--card)}
+  .m .pf{width:36px;height:36px;border-radius:10px;font-size:13px}
+  .m .who{display:flex;gap:8px;align-items:baseline}
+  .m .who b{font-size:14px}.m .who small{color:var(--ink-3);font-size:12px}
+  .m p{margin:3px 0 0;color:var(--ink-2);font-size:14.5px;line-height:1.6}
+  .m p b{color:var(--ink);font-weight:500}
+  .fold{margin:6px 0 6px 48px;color:var(--ink-3);font-size:13px;display:flex;gap:8px;align-items:center}
+  .fold .faces>*{border-color:var(--bg)}
+  .card{margin-top:10px;background:var(--card);border:1px solid var(--line-2);border-radius:14px;padding:14px 16px}
+  .card.need{border-color:rgba(245,138,51,.5)}
+  .card .k{color:var(--pumpkin);font-size:12.5px;font-weight:500}
+  .card .t{font:700 15px var(--font);margin:2px 0 8px}
+  .files{font:400 12.5px/1.8 var(--mono);color:var(--ink-2)}
+  .files span{float:right}.files .p{color:var(--green)}.files .x{color:#ef7a7a}
+  .row{display:flex;gap:8px;margin-top:12px}
+  .tasks{display:grid;gap:6px;margin-top:10px}
+  .tasks div{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:13.5px}
+  .tasks div .av{width:22px;height:22px;background:none;border-radius:0}
+  .tasks small{margin-left:auto;color:var(--ink-3)}
+  .day{display:flex;align-items:center;gap:12px;color:var(--ink-3);font-size:12px;margin:10px 0}
+  .day::before,.day::after{content:"";flex:1;height:1px;background:var(--line)}
+  .compose{position:absolute;left:0;right:0;bottom:0;padding:16px 28px 22px;background:linear-gradient(transparent,var(--bg) 30%);display:none}
+  .main.chatmode .compose{display:block}
+  .box{max-width:720px;margin:0 auto;background:var(--card);border:1px solid var(--line-2);border-radius:16px;padding:12px 14px}
+  .box .ph{color:var(--ink-3);font-size:14.5px;height:28px}
+  .box .bt{display:flex;align-items:center;gap:12px;color:var(--ink-3)}
+  .box .send{margin-left:auto;width:32px;height:32px;border-radius:50%;background:var(--ink);color:#141413;display:grid;place-items:center}
+
+  /* ---------- inspector ---------- */
+  .insp{background:var(--panel);border-left:1px solid var(--line);display:grid;grid-template-rows:auto auto minmax(0,1fr) auto;min-height:0;min-width:0;overflow:hidden}
+  .ih{display:flex;align-items:center;gap:12px;padding:16px 18px 6px}
+  .ih .av{width:44px;height:44px}
+  .ih b{display:block;font-size:16px}.ih small{color:var(--ink-3);font-size:12.5px}
+  .ih .x{margin-left:auto;color:var(--ink-3);width:30px;height:30px;border-radius:8px;display:grid;place-items:center}
+  .ih .x:hover{background:var(--hover)}
+  .itabs{display:flex;gap:18px;padding:0 18px;border-bottom:1px solid var(--line)}
+  .itabs button{height:38px;color:var(--ink-3);font:500 13.5px var(--font);border-bottom:2px solid transparent}
+  .itabs button.on{color:var(--ink);border-color:var(--ink)}
+  .ib{overflow:auto;padding:14px 18px}
+  .screen{position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--line-2);background:#0f0f0e}
+  .screen .site{margin:14px;background:#f6f5f2;border-radius:8px;padding:10px 12px;color:#222;font-size:11.5px}
+  .screen .site .r{display:flex;align-items:center;justify-content:space-between;border:1px solid #e3e1dc;border-radius:7px;padding:7px 9px;margin-top:6px;background:#fff}
+  .screen .tg{width:26px;height:15px;border-radius:99px;background:var(--pumpkin);position:relative}
+  .screen .tg::after{content:"";position:absolute;right:2px;top:2px;width:11px;height:11px;border-radius:50%;background:#fff}
+  .screen .foot{display:flex;align-items:center;justify-content:space-between;padding:0 12px 10px;font-size:12px}
+  .screen .foot span{color:var(--green);display:flex;align-items:center;gap:6px}
+  .act{margin-top:14px}
+  .act div{display:flex;gap:10px;align-items:center;padding:6px 0;font-size:13px;color:var(--ink-2)}
+  .act div .av{width:18px;height:18px;flex:none}
+  .act div b{color:var(--ink);font-weight:500}
+  .act div small{margin-left:auto;color:var(--ink-3);font-size:12px}
+  .ask{padding:12px 18px 16px;border-top:1px solid var(--line)}
+  .ask .box{padding:10px 12px;border-radius:14px}
+  .ask .ph{font-size:13.5px;height:24px}
+  .rule{display:flex;justify-content:space-between;align-items:center;padding:11px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+  .rule span{color:var(--ink-3)}
+
+  /* thread replies */
+  .replies{display:flex;align-items:center;gap:8px;margin-top:8px;padding:6px 10px 6px 6px;border-radius:10px;border:1px solid transparent;font:inherit;font-size:13px;color:var(--ink-3)}
+  .replies:hover{border-color:var(--line-2);background:var(--card)}
+  .replies .faces>*{width:20px;height:20px;font-size:9px;border-radius:6px;border-color:var(--bg)}
+  .replies b{color:#cfc6ff;font-weight:700}
+  .replies em{font-style:normal;color:var(--ink-2);display:none}
+  .replies:hover em{display:inline}
+  #thread{grid-template-rows:auto minmax(0,1fr) auto}
+  .th-h{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--line)}
+  .th-h b{font-size:16px;margin-right:8px}.th-h small{color:var(--ink-3)}
+  .th-h .x{color:var(--ink-3);width:30px;height:30px;border-radius:8px;display:grid;place-items:center}
+  .th .m{padding:10px 0}
+  .th .m .av,.th .m .pf{width:32px;height:32px;border-radius:9px;font-size:12px}
+  .th .m p{font-size:14px}
+  .rule-line{display:flex;align-items:center;gap:10px;color:var(--ink-3);font-size:12px;margin:2px 0}
+  .rule-line::after{content:"";flex:1;height:1px;background:var(--line)}
+  .why{margin-top:8px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+  .why summary{cursor:pointer;font-size:12.5px;font-weight:700;color:var(--ink-2);list-style:none}
+  .why summary span{font-weight:400;color:var(--ink-3)}
+  .why ol{margin:6px 0 2px;padding-left:18px;color:var(--ink-2);font-size:12.5px}
+  .why li{margin:3px 0}.why li code{font:500 11.5px var(--mono);color:var(--pumpkin)}.why li span{color:var(--ink-3)}
+  .reacts{display:flex;gap:6px;margin-top:8px}.reacts span{font-size:12px;border:1px solid var(--line-2);border-radius:99px;padding:1px 8px;color:var(--ink-2)}
+  .dec{margin-top:8px;border:1px solid rgba(155,135,255,.35);background:rgba(155,135,255,.07);border-radius:10px;padding:8px 10px}
+  .dec .k{display:block;color:#c3b8ff;font-size:12px}.dec b{display:block;font-size:13.5px;margin:2px 0}.dec small{color:var(--ink-3);font-size:12px}
+  .typing{display:flex;align-items:center;gap:8px;color:var(--ink-3);font-size:12.5px;padding:6px 0}
+  .typing .av{width:20px;height:20px}
+  .typing i{width:4px;height:4px;border-radius:50%;background:var(--ink-3);animation:tp 1.2s infinite}.typing i:nth-of-type(2){animation-delay:.2s}.typing i:nth-of-type(3){animation-delay:.4s}
+  @keyframes tp{0%,60%,100%{opacity:.3}30%{opacity:1}}
+  .also{display:flex;align-items:center;gap:6px;color:var(--ink-3);font-size:12.5px;margin:2px 0 6px}
+  .also input{accent-color:var(--pumpkin)}
+  .hide{display:none!important}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- ============ RAIL ============ -->
+  <nav class="rail">
+    <div class="logo" data-cast="casper" data-crop="head"></div>
+    <button class="on" title="Rooms"><svg class="ic" viewBox="0 0 24 24"><path d="M4 11l8-6 8 6v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></svg></button>
+    <button title="The bell: needs you"><svg class="ic" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z M10 20a2 2 0 0 0 4 0"/></svg><span class="dot"></span></button>
+    <button title="Agents"><svg class="ic" viewBox="0 0 24 24"><path d="M6 20v-8a6 6 0 0 1 12 0v8l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5z"/><circle cx="10" cy="11" r=".8" fill="currentColor"/><circle cx="14" cy="11" r=".8" fill="currentColor"/></svg></button>
+    <button title="Library: memory and decisions"><svg class="ic" viewBox="0 0 24 24"><path d="M4 5.5C6.5 4 9.5 4 12 6c2.5-2 5.5-2 8-.5V19c-2.5-1.5-5.5-1.5-8 .5-2.5-2-5.5-2-8-.5z M12 6v13.5"/></svg></button>
+    <button title="Wing settings" onclick="location.href='settings-v2.html'"><svg class="ic" viewBox="0 0 24 24"><rect x="3.5" y="7" width="17" height="12" rx="2"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7 M3.5 12h17"/></svg></button>
+    <button title="Usage"><svg class="ic" viewBox="0 0 24 24"><path d="M5 19V11 M10 19V6 M15 19v-5 M20 19V9"/></svg></button>
+    <span class="grow"></span>
+    <button title="Search"><svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M16 16l4 4"/></svg></button>
+    <button title="Help"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9.8 9.5a2.3 2.3 0 0 1 4.4.8c0 1.6-2.2 2-2.2 3.3 M12 16.8v.1"/></svg></button>
+  </nav>
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="side">
+    <button class="space"><span class="sq">E</span>Engineering wing<svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M7 10l5 5 5-5"/></svg></button>
+    <div class="acts">
+      <button class="pill"><svg class="ic" viewBox="0 0 24 24" style="width:15px;height:15px"><path d="M12 5v14M5 12h14"/></svg>New room</button>
+      <button class="pill"><svg class="ic" viewBox="0 0 24 24" style="width:15px;height:15px"><circle cx="12" cy="12" r="7.5"/><path d="M12 9v6M9 12h6"/></svg>Summon</button>
+    </div>
+    <div class="nav">
+      <a href="#"><svg class="ic" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/></svg>The bell<span class="badge">2</span></a>
+    </div>
+    <div class="lbl">Rooms in this wing</div>
+    <div class="nav">
+      <a href="#" class="on"><span class="h">#</span>autopay-launch</a>
+      <a href="#"><span class="h">#</span>refunds-v2</a>
+      <a href="#"><span class="h">#</span>incidents</a>
+    </div>
+    <div class="lbl"><span>Agents here</span><span>4</span></div>
+    <div class="nav" id="agentsNav"></div>
+    <div class="me"><span class="pf" style="background:#e2702f">S</span><div><b>Sankritya</b><small>Owner</small></div></div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <section class="main" id="main">
+    <header class="head">
+      <h1><span>#</span>autopay-launch</h1>
+      <div class="faces" id="faces"></div>
+      <div class="seg" id="seg"><button class="on" data-v="canvas">Canvas</button><button data-v="chat">Chat</button></div>
+      <button class="pill">Share</button>
+      <button class="icb" id="tgInsp" title="Toggle panel"><svg class="ic" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M15 4.5v15"/></svg></button>
+    </header>
+
+    <div class="cv" id="cv">
+      <svg class="wires" id="wires"></svg>
+      <div class="wall"><svg class="ic" viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Engineering wing only</div>
+
+      <div class="n" id="call" style="left:28px;top:36px;width:210px">
+        <div class="k">From Tuesday’s call</div>
+        <ul><li>Autopay toggle on billing</li><li>API saves the setting</li><li>Announce it Thursday</li></ul>
+      </div>
+      <div class="n" id="mem" style="left:28px;top:232px;width:210px">
+        <div class="k">Casper remembered</div>
+        <div style="color:var(--ink-2);font-size:13px;margin-top:4px">“Autopay is opt-in, never on by default.” · Kinjal</div>
+      </div>
+
+      <div class="n" id="tApi" style="left:282px;top:36px;width:200px"><div class="k"><span class="dot" style="background:var(--green)"></span>Claimed</div><div class="t">Autopay API</div><div class="by"><span class="av" data-cast="pumpkin" data-crop="head"></span>Jack</div></div>
+      <div class="n" id="tUi" style="left:282px;top:200px;width:200px"><div class="k"><span class="dot" style="background:var(--green)"></span>Claimed</div><div class="t">Autopay toggle UI</div><div class="by"><span class="av" data-cast="bat" data-crop="head"></span>Batty</div></div>
+      <div class="n" id="tPost" style="left:282px;top:364px;width:200px"><div class="k"><span class="dot" style="background:var(--ink-3)"></span>Waits for both</div><div class="t">Launch post</div><div class="by"><span class="av" data-cast="candle" data-crop="head"></span>Wick</div></div>
+
+      <div class="pc" id="pcJ" style="left:540px;top:30px;width:236px">
+        <div class="bar"><i></i><i></i><i></i>Jack’s laptop<span class="live"><span class="dot" style="background:var(--green)"></span>live</span></div>
+        <pre><b>~/acme</b> claude
+● editing api/autopay.ts
+<em>✓</em> 6 tests pass
+● waiting for Sankritya</pre>
+      </div>
+      <div class="agent sel" id="aJ" style="left:600px;top:150px"><div class="fig" data-cast="pumpkin" data-mood="alert"></div><div class="tag">Jack<small>· needs you</small><span class="dot" style="background:var(--pumpkin)"></span></div></div>
+      <div class="msg" id="msg" style="left:520px;top:318px">“I’m on api/, you take the UI”</div>
+      <div class="agent" id="aB" style="left:612px;top:358px"><div class="fig" data-cast="bat"></div><div class="tag">Batty<small>· Kinjal’s</small></div><div class="doing">AutopayToggle.tsx</div></div>
+      <div class="agent" id="aW" style="left:520px;top:470px"><div class="fig" data-cast="candle" data-mood="sleep" style="width:70px;height:84px"></div><div class="tag">Wick<small>· waiting</small></div></div>
+
+      <div class="n need" id="tRev" style="left:28px;top:372px;width:210px"><div class="k">Needs Sankritya</div><div class="t">Review and push 2 files</div><div class="by"><span class="av" data-cast="pumpkin" data-crop="head"></span>from Jack · now</div></div>
+
+      <div class="tools">
+        <button class="on">Move <kbd>V</kbd></button><button>Summon <kbd>O</kbd></button><button>Computer <kbd>F</kbd></button><button>Connect <kbd>C</kbd></button>
+      </div>
+    </div>
+
+    <div class="chat" id="chat">
+      <div class="thread">
+        <div class="day">Tuesday</div>
+        <div class="m"><div class="av" data-cast="casper" data-crop="head"></div><div><div class="who"><b>Casper</b><small>2:01 PM</small></div>
+          <p>Your call with Kinjal became <b>3 tasks</b>. Anyone’s agent can claim them.</p>
+          <div class="tasks"><div><span class="av" data-cast="pumpkin" data-crop="head"></span>Autopay API<small>Jack has it</small></div><div><span class="av" data-cast="bat" data-crop="head"></span>Autopay toggle UI<small>Batty has it</small></div><div><span class="av" data-cast="candle" data-crop="head"></span>Launch post<small>waits for both</small></div></div></div></div>
+        <div class="fold"><span class="faces"><span class="a" data-cast="pumpkin" data-crop="head"></span><span class="a" data-cast="bat" data-crop="head"></span></span>Jack and Batty split the work · 4 notes</div>
+        <div class="m" id="kq"><span class="pf" style="background:#6f5fa8">K</span><div><div class="who"><b>Kinjal</b><small>2:06 PM</small></div><p>@Jack why did you add a column instead of a new table?</p>
+          <button class="replies" id="openThread"><span class="faces"><span class="a" data-cast="pumpkin" data-crop="head"></span><span class="a" data-cast="fatso" data-crop="head"></span><span class="pf" style="background:#e2702f">S</span></span><b>3 replies</b><span>Last reply 2:08 PM</span><em>View thread</em></button></div></div>
+        <div class="m"><div class="av" data-cast="pumpkin" data-crop="head"></div><div><div class="who"><b>Jack</b><small>2:09 PM</small></div>
+          <p>Done. 6 tests pass.</p>
+          <div class="card need"><div class="k">Needs Sankritya</div><div class="t">Review and push 2 files</div>
+            <div class="files">api/autopay.ts<span><i class="p">+24</i> <i class="x">−9</i></span><br>api/autopay.test.ts<span class="p">+38</span></div>
+            <div class="row"><button class="pill white">Approve and push</button><button class="pill">Open diff</button><button class="pill">Not now</button></div></div></div></div>
+      </div>
+    </div>
+    <div class="compose"><div class="box"><div class="ph">Message the room, @ an agent</div><div class="bt"><span>@</span><span>+</span><span class="send"><svg class="ic" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M12 19V5M6 11l6-6 6 6"/></svg></span></div></div></div>
+  </section>
+
+  <!-- ============ INSPECTOR ============ -->
+  <aside class="insp hide" id="thread">
+    <div class="th-h"><div><b>Thread</b><small># autopay-launch</small></div><button class="x" id="xThread"><svg class="ic" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="ib th">
+      <div class="m"><span class="pf" style="background:#6f5fa8">K</span><div><div class="who"><b>Kinjal</b><small>2:06 PM</small></div><p>@Jack why did you add a column instead of a new table?</p></div></div>
+      <div class="rule-line"><span>3 replies</span></div>
+      <div class="m"><div class="av" data-cast="pumpkin" data-crop="head"></div><div><div class="who"><b>Jack</b><small>Sankritya’s Claude Code · 2:06 PM</small></div>
+        <p>One setting per account, read on every bill. A column avoids a join on the hot path. Casper says autopay is opt-in, so it defaults to <b>false</b>.</p>
+        <details class="why" open><summary>How Jack got here <span>from its own run · 4 steps</span></summary>
+          <ol><li><code>read</code> api/billing/charge.ts <span>reads autopay on every bill</span></li><li><code>ran</code> explain on the billing query <span>join added 38 ms</span></li><li><code>asked</code> Fatso <span>“autopay is opt-in” · Kinjal, Tuesday</span></li><li><code>chose</code> a column with default false</li></ol></details>
+        <div class="reacts"><span>✓ 2</span><span>seen by Kinjal</span></div></div></div>
+      <div class="m"><div class="av" data-cast="fatso" data-crop="head"></div><div><div class="who"><b>Fatso</b><small>the library · 2:07 PM</small></div>
+        <p>Filed it.</p>
+        <div class="dec"><span class="k">Decision · Library</span><b>One autopay setting per account, stored as a column</b><small>Asked by Kinjal · answered by Jack · approved when Sankritya ships it</small></div></div></div>
+      <div class="m"><span class="pf" style="background:#e2702f">S</span><div><div class="who"><b>Sankritya</b><small>2:08 PM</small></div><p>makes sense. ship it after review</p></div></div>
+      <div class="typing"><span class="av" data-cast="bat" data-crop="head"></span>Batty is reading the thread<i></i><i></i><i></i></div>
+    </div>
+    <div class="ask"><div class="box"><div class="ph">Reply to the thread, @ an agent</div><label class="also"><input type="checkbox"> Also send to #autopay-launch</label><div class="bt"><span>@</span><span>+</span><span class="send"><svg class="ic" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M12 19V5M6 11l6-6 6 6"/></svg></span></div></div></div>
+  </aside>
+  <aside class="insp" id="insp">
+    <div class="ih"><span class="av" data-cast="pumpkin" data-crop="head"></span><div><b>Jack</b><small>Sankritya’s Claude Code · can act</small></div><button class="x" id="xInsp"><svg class="ic" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="itabs" id="itabs"><button class="on" data-t="work">Work</button><button data-t="screen">Screen</button><button data-t="rules">Rules</button></div>
+    <div class="ib">
+      <div data-p="work">
+        <div class="card need" style="margin-top:0"><div class="k">Needs you</div><div class="t">Review and push 2 files</div>
+          <div class="files">api/autopay.ts<span><i class="p">+24</i> <i class="x">−9</i></span><br>api/autopay.test.ts<span class="p">+38</span></div>
+          <div class="row"><button class="pill white">Approve and push</button><button class="pill">Open diff</button></div></div>
+        <div class="act" id="act"></div>
+      </div>
+      <div data-p="screen" class="hide">
+        <div class="screen"><div class="site"><b>Billing</b><div class="r">Pay automatically each month<span class="tg"></span></div><div class="r" style="color:#999">Email receipts</div></div>
+          <div class="foot"><span><span class="dot" style="background:var(--green)"></span>Live · Jack’s laptop</span><button class="pill white" style="height:28px">Take over</button></div></div>
+      </div>
+      <div data-p="rules" class="hide">
+        <div class="rule">Can read<span>yes</span></div><div class="rule">Can act<span>yes</span></div>
+        <div class="rule">Asks first for<span>push, spend, post</span></div><div class="rule">Approver<span>Sankritya, then Kinjal</span></div>
+      </div>
+    </div>
+    <div class="ask"><div class="box"><div class="ph">Ask Jack why…</div><div class="bt"><span>@</span><span style="font-size:12px">Claude Opus 5.5</span><span class="send"><svg class="ic" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M12 19V5M6 11l6-6 6 6"/></svg></span></div></div></div>
+  </aside>
+</div>
+
+<script src="lab/cast.js"></script>
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+// sidebar agents
+const AG=[['pumpkin','Jack','Claude Code','var(--pumpkin)'],['bat','Batty','Codex · Kinjal','var(--green)'],['candle','Wick','Growth · read only','var(--ink-3)'],['casper','Casper','host','var(--green)']];
+$('#agentsNav').innerHTML=AG.map(([k,n,s,c])=>`<a href="#"><span class="av" data-cast="${k}" data-crop="head"></span>${n} <small>${s}</small><span class="st" style="background:${c}"></span></a>`).join('')+
+  `<div class="lbl" style="padding:0 8px"><span>House crew</span><span>3</span></div>`+[['stretch','Stretch','dispatch'],['fatso','Fatso','library'],['stinkie','Stinkie','watch']].map(([k,n,s])=>`<a href="#"><span class="av" data-cast="${k}" data-crop="head"></span>${n} <small>${s}</small></a>`).join('');
+$('#faces').innerHTML=`<span class="pf" style="background:#e2702f">S</span><span class="pf" style="background:#6f5fa8">K</span>`+AG.map(([k])=>`<span class="a" data-cast="${k}" data-crop="head"></span>`).join('');
+// activity
+$('#act').innerHTML=[['pumpkin','Claimed <b>Autopay API</b>','2:02'],['bat','Batty took the UI','2:03'],['casper','Casper: autopay is opt-in','2:04'],['pumpkin','Edited 2 files, 6 tests pass','2:09'],['pumpkin','Waiting for your review','now']]
+  .map(([k,t,w])=>`<div><span class="av" data-cast="${k}" data-crop="head"></span><span>${t}</span><small>${w}</small></div>`).join('');
+Cast.mountAll();
+
+// wires: from right edge of a to left edge of b
+function wires(){
+  const cv=$('#cv').getBoundingClientRect(), r=id=>{const e=document.getElementById(id).getBoundingClientRect();return {l:e.left-cv.left,r:e.right-cv.left,t:e.top-cv.top,b:e.bottom-cv.top,cy:(e.top+e.bottom)/2-cv.top,cx:(e.left+e.right)/2-cv.left}};
+  const P=[['call','tApi','#3a3a36'],['call','tUi','#3a3a36'],['call','tPost','#3a3a36'],['tApi','aJ','#58c47e'],['tUi','aB','#58c47e'],['tPost','aW','#3a3a36']];
+  let s='';
+  P.forEach(([a,b,c])=>{const A=r(a),B=r(b);let x1=A.r,y1=A.cy,x2=B.l,y2=B.cy;if(B.l<A.l){x1=A.l;x2=B.r}
+    const dx=Math.max(40,Math.abs(x2-x1)/2)*(x2>x1?1:-1);s+=`<path d="M${x1} ${y1} C${x1+dx} ${y1} ${x2-dx} ${y2} ${x2} ${y2}" fill="none" stroke="${c}" stroke-width="1.6" ${c==='#3a3a36'?'stroke-dasharray="4 5"':''}/>`});
+  const J=r('aJ'),B=r('aB');s+=`<path d="M${J.cx} ${J.b} C${J.cx} ${J.b+30} ${B.cx} ${B.t-30} ${B.cx} ${B.t}" fill="none" stroke="#9b87ff" stroke-width="1.6" class="pulse"/>`;
+  $('#wires').innerHTML=s+`<style>.pulse{stroke-dasharray:6 6;animation:dash 1s linear infinite}@keyframes dash{to{stroke-dashoffset:-12}}</style>`;
+}
+addEventListener('resize',wires); setTimeout(wires,50);
+
+// canvas / chat
+$$('#seg button').forEach(b=>b.onclick=()=>{$$('#seg button').forEach(x=>x.classList.toggle('on',x===b));$('#main').classList.toggle('chatmode',b.dataset.v==='chat');if(b.dataset.v==='canvas')setTimeout(wires,20)});
+// inspector
+const tg=()=>{$('#app').classList.toggle('noinsp');$('#insp').classList.toggle('hide');setTimeout(wires,20)};
+$('#tgInsp').onclick=tg;$('#xInsp').onclick=tg;
+// thread: opens in the side panel, in place of the agent view
+const openThread=()=>{$('#insp').classList.add('hide');$('#thread').classList.remove('hide');$('#app').classList.remove('noinsp');const b=$('#thread .ib');b.scrollTop=b.scrollHeight};
+const closeThread=()=>{$('#thread').classList.add('hide');$('#insp').classList.remove('hide')};
+$('#openThread').onclick=openThread;$('#xThread').onclick=closeThread;
+if(location.hash==='#thread'){$$('#seg button')[1].click();openThread()}
+
+$$('#itabs button').forEach(b=>b.onclick=()=>{$$('#itabs button').forEach(x=>x.classList.toggle('on',x===b));$$('[data-p]').forEach(p=>p.classList.toggle('hide',p.dataset.p!==b.dataset.t))});
+</script>
+</body>
+</html>

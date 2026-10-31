@@ -1,0 +1,25 @@
+{
+  "name": "casper-hub",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "actors": "durable-actors dev",
+    "generate": "durable-actors generate",
+    "hub": "bun server.ts"
+  },
+  "dependencies": {
+    "durable-actors": "0.14.6",
+    "hono": "4"
+  },
+  "engines": {
+    "bun": ">=1.4.2"
+  },
+  "trustedDependencies": [
+    "esbuild"
+  ],
+  "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "@types/node": "22",
+    "typescript": "5.9.3"
+  }
+}

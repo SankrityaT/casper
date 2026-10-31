@@ -16,6 +16,9 @@ import NewRoom from "@/components/ws/NewRoom";
 import Summon, { type Summoned } from "@/components/ws/Summon";
 import { SourceCtx } from "@/components/ws/SourcePeek";
 import { BellPage, AgentsPage, LibraryPage, SettingsPage, UsagePage } from "@/components/ws/Pages";
+import LiveRoom, { LiveBells, LiveCanvas } from "@/components/ws/Live";
+import { HUB, listRooms, createRoom, me } from "@/lib/live";
+const LIVE = "autopay";
 
 type Page = "room" | "bell" | "agents" | "library" | "settings" | "usage";
 type Post = { room: string; who: Id; text: string; thread?: number; note?: string; att?: Att[] };
@@ -175,6 +178,13 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
   const [photo, setPhoto] = useState(false);
   const [newRoom, setNewRoom] = useState(false);
   const summon = (a: Summoned) => {
+    if (isLive(room) && HUB.url) {
+      fetch(`${HUB.url}/room/${encodeURIComponent(room)}/summon`, { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: a.name, task: a.job || "Pick an open task in this room and do it.", by: me(), approver: a.approver }) })
+        .then(async (r) => { if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "Couldn't summon."); setSummonOpen(false); })
+        .catch((e) => alert((e as Error).message));
+      return;
+    }
     const seat = SLOTS.find((x) => !summoned.includes(x));
     if (!seat) return;
     P[seat] = { name: a.name, kind: a.kind, sub: `${a.job || "summoned"} · ${a.runsOn}` };
@@ -231,7 +241,22 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
       setTimeout(() => { setPosts((p) => [...p, { room, who: id, text: REPLY[id]!(t), thread, att: REPLY_ATT[id] }]); setReplying(null); }, 1700);
     }
   };
-  const openRoom = (r: string) => { setRoom(r); setPage("room"); setThreadOf(null); setFindThread(false); };
+  // rooms that live on the hub (Terse actors): listed in the sidebar, rendered live
+  const [hubRooms, setHubRooms] = useState<string[]>([]);
+  useEffect(() => {
+    if (!full) return;
+    let dead = false;
+    const load = () => listRooms().then((rs) => {
+      if (dead) return;
+      rs.forEach((r) => { if (!ROOMS[r.slug]) ROOMS[r.slug] = { topic: r.topic, msgs: [], cards: [] }; });
+      setHubRooms(rs.map((r) => r.slug));
+    }).catch(() => {});
+    load();
+    const t = setInterval(load, 10000);
+    return () => { dead = true; clearInterval(t); };
+  }, [full]);
+  const isLive = (r: string) => r === LIVE || hubRooms.includes(r);
+  const openRoom = (r: string) => { setRoom(r); setPage("room"); setThreadOf(null); setFindThread(false); if (r === LIVE || hubRooms.includes(r)) onView("chat"); };
   const openThread = (i: number) => { setThreadOf(i); setInsp(true); };
   // forward a message into another room (or a DM, which we show as a note here)
   const forward = (t: Target, text: string) => {
@@ -422,7 +447,8 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
               </div>
             </div>
 
-            {room !== "autopay-launch" && view === "canvas" && (
+            {isLive(room) && view === "canvas" && <LiveCanvas key={room} room={room} />}
+            {room !== "autopay-launch" && !isLive(room) && view === "canvas" && (
               <div className="cv">
                 <div className="hint">#{room} · {ROOMS[room].topic}</div>
                 {ROOMS[room].cards.map((c, k) => (
@@ -462,6 +488,8 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
                       </Bubble>
                     ))}
                   </>
+                ) : isLive(room) ? (
+                  <LiveRoom key={room} room={room} />
                 ) : (
                   <>
                     <div className="day">{ROOMS[room].msgs[0]?.at === "now" ? "Today" : "Earlier"}</div>
@@ -483,11 +511,11 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
             </div>
             <div className="compose">
               <TypingBar who={replying && threadOf === null ? replying : !done && room === "autopay-launch" && cur >= 0 && cur < SCRIPT.length - 1 ? SCRIPT[cur + 1].who : draft ? "sankritya" : null} />
-              <Composer value={draft} set={setDraft} onSend={(t, a) => send(t, undefined, a)} placeholder={`Message #${room}, @ an agent to get an answer`} />
+              {!isLive(room) && <Composer value={draft} set={setDraft} onSend={(t, a) => send(t, undefined, a)} placeholder={`Message #${room}, @ an agent to get an answer`} />}
             </div>
           </section>
 
-          {page === "bell" && <BellPage ask={ask} onApprove={approve} goRoom={openRoom} />}
+          {page === "bell" && <BellPage ask={ask} onApprove={approve} goRoom={openRoom} live={<LiveBells goRoom={openRoom} />} />}
           {page === "agents" && <AgentsPage speaking={speaker} open={(id) => { setPage("room"); setPinned(id); setThreadOf(null); setInsp(true); onView("canvas"); }} />}
           {page === "library" && <LibraryPage />}
           {page === "settings" && <SettingsPage />}
@@ -569,8 +597,18 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
         {photo && <GroupPhoto onClose={() => setPhoto(false)} />}
         {summonOpen && <Summon room={room} open={ROOMS[room]?.cards.filter((c) => c.k === "Open").map((c) => c.t) ?? []} onClose={() => setSummonOpen(false)} onSummon={summon} />}
         {newRoom && <NewRoom onClose={() => setNewRoom(false)} onCreate={(r) => {
-          ROOMS[r.slug] = { topic: r.topic, msgs: r.msgs, cards: r.cards };
-          setNewRoom(false); openRoom(r.slug); onView("chat");
+          if (HUB.url) {
+            createRoom(r.slug, r.topic, "sankritya").then((info) => {
+              ROOMS[info.slug] = { topic: info.topic, msgs: [], cards: [] };
+              setHubRooms((x) => [...new Set([...x, info.slug])]);
+              setNewRoom(false); setRoom(info.slug); setPage("room"); setThreadOf(null); onView("chat");
+            }).catch((e) => alert((e as Error).message));
+            return;
+          }
+          let slug = r.slug.replace(/^-+|-+$/g, "").slice(0, 40) || "new-room";
+          for (let n = 2; ROOMS[slug]; n++) slug = `${r.slug.slice(0, 37)}-${n}`;
+          ROOMS[slug] = { topic: r.topic, msgs: r.msgs.map((m) => ({ ...m, text: m.text.split(`#${r.slug}`).join(`#${slug}`) })), cards: r.cards };
+          setNewRoom(false); openRoom(slug); onView("chat");
         }} />}
       </div>
     </div>

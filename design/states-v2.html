@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Casper · every state</title>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=zodiak@800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#141413; --card:#1e1e1c; --card-2:#252523; --line:#262624; --line-2:#33332f;
+    --ink:#ededeb; --ink-2:#a8a8a3; --ink-3:#73736e;
+    --need:#f58a33; --wrong:#e9b949; --fail:#ef6b6b; --drive:#7fa6ee; --fine:#58c47e; --talk:#9b87ff;
+    --font:Satoshi,ui-sans-serif,system-ui,sans-serif; --mono:"Geist Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:400 14px/1.5 var(--font);-webkit-font-smoothing:antialiased}
+  .page{max-width:1240px;margin:0 auto;padding:56px 32px 96px}
+  h1{font:800 46px/1.05 Zodiak,Georgia,serif;letter-spacing:-.015em;margin:0}
+  .lede{color:var(--ink-2);font-size:16px;max-width:720px;margin:12px 0 18px}
+  .key{display:flex;gap:18px;flex-wrap:wrap;color:var(--ink-2);font-size:13.5px}
+  .key span{display:flex;align-items:center;gap:7px}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex:none}
+  h2{font:700 22px var(--font);margin:56px 0 14px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .tile{background:#181817;border:1px solid var(--line-2);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+  .meta{padding:14px 16px 10px}
+  .meta .row{display:flex;align-items:center;gap:8px}
+  .meta .n{font:500 12px var(--mono);color:var(--ink-3)}
+  .meta b{font-size:15px}
+  .sat{margin-left:auto;font:500 11.5px var(--font);border-radius:99px;padding:2px 8px}
+  .sat.yes{background:rgba(88,196,126,.14);color:var(--fine)}.sat.later{background:var(--card-2);color:var(--ink-3)}
+  .meta p{margin:4px 0 0;color:var(--ink-2);font-size:13px}
+  .stage{flex:1;min-height:210px;margin:0 10px;border-radius:12px;border:1px solid var(--line);position:relative;padding:14px;display:flex;align-items:flex-end;gap:12px;
+    background:radial-gradient(circle at 1px 1px,rgba(255,255,255,.05) 1px,transparent 1.3px) 0 0/20px 20px,#121211}
+  .parts{padding:10px 16px 14px;color:var(--ink-3);font-size:12.5px}
+  .parts code{font:400 12px var(--mono);color:var(--ink-2)}
+  .fig{display:flex;flex-direction:column;align-items:center;flex:none}
+  .fig .c{width:78px;height:94px}
+  .fig .tag{margin-top:-2px;display:flex;align-items:center;gap:5px;background:var(--card);border:1px solid var(--line-2);border-radius:99px;padding:2px 9px;font:500 12px var(--font);white-space:nowrap}
+  .fig .tag small{color:var(--ink-3)}
+  .fig.dim .c{opacity:.45;filter:grayscale(.6)}
+  .card{flex:1;min-width:0;background:var(--card);border:1px solid var(--line-2);border-radius:12px;padding:10px 12px;align-self:center}
+  .card .k{font-size:12px;font-weight:500;display:flex;align-items:center;gap:6px}
+  .card .t{font-weight:700;font-size:13.5px;margin:1px 0 4px}
+  .card p{margin:0;color:var(--ink-2);font-size:12.5px;line-height:1.45}
+  .card .acts{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .btn{font:700 12px var(--font);border-radius:8px;padding:4px 9px;border:1px solid var(--line-2);color:var(--ink)}
+  .btn.w{background:var(--ink);color:#141413;border-color:var(--ink)}
+  .need{border-color:rgba(245,138,51,.55)}.need .k{color:var(--need)}
+  .wrong{border-color:rgba(233,185,73,.5)}.wrong .k{color:var(--wrong)}
+  .fail{border-color:rgba(239,107,107,.5)}.fail .k{color:var(--fail)}
+  .drive{border-color:rgba(127,166,238,.55)}.drive .k{color:var(--drive)}
+  .fine .k{color:var(--fine)}
+  .talk{border-color:rgba(155,135,255,.45)}.talk .k{color:#c3b8ff}
+  .screen{position:relative;flex:1;align-self:stretch;border:1px solid var(--line-2);border-radius:10px;background:#0f0f0e;overflow:hidden}
+  .screen .bar{height:20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:4px;padding:0 8px;font-size:10.5px;color:var(--ink-3)}
+  .screen .bar i{width:5px;height:5px;border-radius:50%;background:var(--line-2)}
+  .screen .site{margin:10px;background:#f2f1ee;border-radius:6px;padding:8px;color:#333;font-size:11px}
+  .screen .site .f{height:16px;border:1px solid #ddd;border-radius:4px;margin-top:5px;background:#fff;font-size:10px;padding:1px 5px;color:#999}
+  .screen.asleep .site{filter:grayscale(1) brightness(.35)}
+  .screen .over{position:absolute;inset:20px 0 0;background:rgba(15,15,14,.72);display:grid;place-items:center;text-align:center;font-size:12.5px;color:var(--ink-2)}
+  .screen.driving{border-color:var(--drive);box-shadow:0 0 0 3px rgba(127,166,238,.15)}
+  .cursor{position:absolute;display:flex;align-items:flex-start;gap:2px;font:500 11px var(--font)}
+  .cursor span{white-space:nowrap;background:var(--drive);color:#0d1626;border-radius:6px;padding:1px 6px;margin-top:10px}
+  .toast{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:var(--card-2);border:1px solid var(--line-2);border-radius:99px;padding:4px 12px;font-size:12px;white-space:nowrap;display:flex;gap:6px;align-items:center}
+  .cord{position:absolute;left:14px;right:14px;top:14px;height:0;border-top:2px dashed var(--talk)}
+  .stack{display:flex;flex-direction:column;gap:6px;flex:1;align-self:center;min-width:0}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Every state, drawn.</h1>
+  <p class="lead lede">The canvas pieces the build should copy as-is: agents, computers, cards and toasts. Each tile names the state, what causes it, and which parts it uses. Colours carry meaning:</p>
+  <div class="key">
+    <span><i class="dot" style="background:var(--need)"></i>Needs a person (the bell)</span>
+    <span><i class="dot" style="background:var(--wrong)"></i>Something looks wrong</span>
+    <span><i class="dot" style="background:var(--fail)"></i>Failed</span>
+    <span><i class="dot" style="background:var(--drive)"></i>A person is driving</span>
+    <span><i class="dot" style="background:var(--talk)"></i>Agents talking</span>
+    <span><i class="dot" style="background:var(--fine)"></i>Live and fine</span>
+  </div>
+  <div id="out"></div>
+</div>
+<script src="lab/cast.js"></script>
+<script>
+const fig=(k,name,sub='',mood='calm',dim=false)=>`<div class="fig${dim?' dim':''}"><div class="c">${Cast.svg(k,{mood})}</div><div class="tag">${name}${sub?`<small>· ${sub}</small>`:''}</div></div>`;
+const card=(cls,k,t,p='',acts=[])=>`<div class="card ${cls}"><div class="k">${k}</div><div class="t">${t}</div>${p?`<p>${p}</p>`:''}${acts.length?`<div class="acts">${acts.map((a,i)=>`<span class="btn${i===0?' w':''}">${a}</span>`).join('')}</div>`:''}</div>`;
+const screen=(cls='',over='',extra='')=>`<div class="screen ${cls}"><div class="bar"><i></i><i></i><i></i>computer</div><div class="site"><b>Stripe · Log in</b><div class="f">email</div><div class="f">2FA code</div></div>${over?`<div class="over">${over}</div>`:''}${extra}</div>`;
+const toast=t=>`<div class="toast">${t}</div>`;
+const T=(n,name,when,sat,stage,parts)=>`<div class="tile"><div class="meta"><div class="row"><span class="n">${n}</span><b>${name}</b><span class="sat ${sat?'yes':'later'}">${sat?'Build Saturday':'Later'}</span></div><p>${when}</p></div><div class="stage">${stage}</div><div class="parts">${parts}</div></div>`;
+
+const GROUPS=[
+ ['Bringing in a new agent',[
+  T('1.1','Summoned, fresh','You drew a circle and named the job. No computer yet.',1,
+    toast('<i class="dot" style="background:var(--fine)"></i>Salem joined the room')+fig('cat','Salem','new','alert')+card('fine','<i class="dot" style="background:var(--fine)"></i>Ready','Watch Stripe for refunds','Draw a frame to give Salem a computer.'),
+    'Parts: <code>fig</code> + <code>toast</code>. Face: alert for 3 s, then calm.'),
+  T('1.2','A guest knocks','Kinjal brings Batty into Sankritya’s room with a room-only pass.',1,
+    fig('bat','Batty','guest','calm')+card('need','<i class="dot" style="background:var(--need)"></i>Needs Sankritya','Batty is knocking','Kinjal’s Codex · can read until you say otherwise.',['Let in','Can act','Not now']),
+    'Parts: <code>fig</code> + bell card. Pass scoped to one room.'),
+  T('1.3','Joins halfway','It arrives mid-task. Casper hands it a catch-up note instead of it asking.',1,
+    fig('casper','Casper','host','happy')+card('fine','Catch-up for Wick','Since 2:00 PM','3 tasks, Jack has the API, Batty has the UI, launch waits for both.'),
+    'Parts: Casper card from <code>since(seq)</code>.'),
+ ]],
+ ['When an agent stops working',[
+  T('2.1','Stuck','No progress on its computer for 2 minutes. Stinkie notices.',1,
+    fig('pumpkin','Jack','','worried')+card('wrong','<i class="dot" style="background:var(--wrong)"></i>Stinkie: no progress for 2 min','Stuck on the Stripe login page','',['Steer','Take over','Stop']),
+    'Parts: actor alarm → Stinkie card. Face: worried.'),
+  T('2.2','Run failed','The run ended. It says what it did and, more importantly, what it did not do.',1,
+    fig('pumpkin','Jack','','worried')+card('fail','<i class="dot" style="background:var(--fail)"></i>Couldn’t finish','Refund batch stopped at 3 of 5','Did: jess.m, ravi.k, ana.p. Did not: lee.w, mo.t.',['Try again','Open run']),
+    'Parts: failure card with done / not done lists.'),
+  T('2.3','Unknown outcome on money','It crashed after sending a refund but before logging it. Never retried blindly.',1,
+    fig('pumpkin','Jack','','worried')+card('wrong','<i class="dot" style="background:var(--wrong)"></i>Check this','It may have refunded jess.m','Charge ch_3Pq… has no record. Look before anything retries.',['I checked, it’s done','Retry once']),
+    'Parts: dedupe by action id. Strong pitch moment.'),
+  T('2.4','Computer asleep','Nobody used it for 10 minutes. Logins survive, open apps don’t.',1,
+    fig('candle','Wick','','sleep')+screen('asleep','Computer is asleep<br><span class="btn" style="display:inline-block;margin-top:6px">Wake</span>'),
+    'Parts: <code>screen.asleep</code>. Face: asleep.'),
+  T('2.5','Offline','Its laptop closed. Messages wait in its inbox and show as “waiting”.',1,
+    fig('bat','Batty','offline','sleep',true)+card('','<i class="dot" style="background:var(--ink-3)"></i>Offline since 2:41 PM','2 messages waiting','They arrive when Batty is back.'),
+    'Parts: Relay inbox. Figure dimmed.'),
+  T('2.6','Lazarus','The server restarted. The room comes back exactly as it was.',1,
+    toast('<i class="dot" style="background:var(--fine)"></i>Lazarus: room restored · event 87')+fig('casper','Casper','','happy')+fig('pumpkin','Jack','','calm')+fig('bat','Batty','','calm'),
+    'Parts: actor holds state; hub replays from last seq.'),
+ ]],
+ ['When an agent wants something',[
+  T('3.1','Needs a yes','A card aimed at one person, visible to everyone. Only the first click counts.',1,
+    fig('pumpkin','Jack','','alert')+card('need','<i class="dot" style="background:var(--need)"></i>Needs Sankritya','Review and push 2 files','api/autopay.ts +24 −9 · test +38',['Approve and push','Open diff','Not now']),
+    'Parts: bell card. Face: alert.'),
+  T('3.2','Nobody answers','After 10 minutes the bell moves to the next person.',1,
+    fig('stinkie','Stinkie','watch','alert')+card('need','<i class="dot" style="background:var(--need)"></i>Ringing Kinjal now','Sankritya didn’t answer in 10 min','Still: review and push 2 files.',['Approve','Not now']),
+    'Parts: actor alarm, approver list.'),
+  T('3.3','Needs a login','It never asks for the code in chat. A person takes over and types it.',1,
+    screen('driving','',`<div class="cursor" style="left:60%;top:62%"><svg width="14" height="14" viewBox="0 0 18 18"><path d="M2 1L2 15L6 11L9 17L11 16L8 10L14 10Z" fill="#7fa6ee" stroke="#fff" stroke-width="1.2"/></svg><span>Kinjal is driving</span></div>`)+`<div class="stack">${card('drive','<i class="dot" style="background:var(--drive)"></i>Jack paused','Kinjal is typing the 2FA code','',['Hand back'])}</div>`,
+    'Parts: <code>screen.driving</code>; agent <code>interrupt</code> then resume.'),
+  T('3.4','Needs a fact','Asks the Library first. If Fatso doesn’t know, it asks one person.',1,
+    fig('fatso','Fatso','library','happy')+card('fine','From the Library','Refund limit is $500','Decided Oct 22 when Jack and Batty disagreed. Source: #refunds-v2.'),
+    'Parts: Fatso answer card with source.'),
+  T('3.5','Several asks at once','The bell stacks them, oldest first.',0,
+    `<div class="stack">${card('need','The bell (3)','Review and push 2 files','Jack · 6 min')}${card('need','','Post the launch thread?','Wick · 2 min')}</div>`,
+    'Parts: bell list in the sidebar.'),
+ ]],
+ ['Agents talking to each other',[
+  T('4.1','Claim-once','Both reach for the same task. Stretch gives it to whoever asked first.',1,
+    fig('bat','Batty','','worried')+fig('stretch','Stretch','dispatch','calm')+card('talk','Stretch','Jack already has “Autopay API”','Open: Autopay toggle UI.',['Take the UI']),
+    'Parts: <code>claim()</code> in the Room actor.'),
+  T('4.2','Going in circles','Six back-and-forths with no person. Stretch pauses both.',1,
+    `<div class="cord"></div>`+fig('pumpkin','Jack','','worried')+fig('bat','Batty','','worried')+card('wrong','<i class="dot" style="background:var(--wrong)"></i>6 replies, no person','Jack and Batty disagree on the schema','',['Step in','Let them go on']),
+    'Parts: hop counter per thread.'),
+  T('4.3','They disagree','Two sources say different things. A person picks, the Library keeps it.',0,
+    card('wrong','<i class="dot" style="background:var(--wrong)"></i>They disagree','Refund limit: $500 or $1,000?','Jack cites Notion, Batty cites Slack.',['$500','$1,000'])+fig('fatso','Fatso','','calm'),
+    'Parts: decision card → Library.'),
+  T('4.4','Quiet chatter','In chat, agent-to-agent talk folds into one line. On the canvas only the cord pulses.',1,
+    `<div class="cord"></div>`+fig('pumpkin','Jack')+card('talk','Jack and Batty','Split the work · 4 notes','Tap to read.')+fig('bat','Batty'),
+    'Parts: folded thread row, pulsing cord.'),
+ ]],
+ ['People sharing the room',[
+  T('5.1','Two people steer one agent','The second person is told who is steering, and can ask to take over.',0,
+    fig('pumpkin','Jack')+card('drive','<i class="dot" style="background:var(--drive)"></i>Kinjal is steering Jack','','',['Ask to take over']),
+    'Parts: steering lock in the actor.'),
+  T('5.2','Midnight pass','A guest from another company acts until midnight, then is read-only again.',0,
+    fig('moon','Luna','Northwind','calm')+card('','<i class="dot" style="background:var(--talk)"></i>Midnight pass','Luna can act in #integration','Access ends 12:00 AM. Actions still need an Acme yes.',['Extend','End now']),
+    'Parts: expiring guest pass.'),
+  T('5.3','Everyone watching','Live cursors with names; same order for everyone.',1,
+    screen('','',`<div class="cursor" style="left:28%;top:58%"><svg width="14" height="14" viewBox="0 0 18 18"><path d="M2 1L2 15L6 11L9 17L11 16L8 10L14 10Z" fill="#f58a33" stroke="#fff" stroke-width="1.2"/></svg><span style="background:#f58a33">Sankritya</span></div><div class="cursor" style="left:62%;top:40%"><svg width="14" height="14" viewBox="0 0 18 18"><path d="M2 1L2 15L6 11L9 17L11 16L8 10L14 10Z" fill="#9b87ff" stroke="#fff" stroke-width="1.2"/></svg><span style="background:#9b87ff">Kinjal</span></div>`),
+    'Parts: presence over the Room actor socket.'),
+ ]],
+];
+document.getElementById('out').innerHTML=GROUPS.map(([h,tiles])=>`<h2>${h}</h2><div class="grid">${tiles.join('')}</div>`).join('');
+</script>
+</body>
+</html>

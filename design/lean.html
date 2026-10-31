@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Casper · lean canvas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Paper (default): Cardinal-lean. One ink at alpha steps, one warm taupe line, one accent. */
+  .theme-paper{
+    --canvas:#fbf6ec; --raised:#ffffff; --inset:#f2ebdf; --side:#f7f1e6;
+    --ink:#1f1c18; --ink-2:rgba(31,28,24,.68); --ink-3:rgba(31,28,24,.48);
+    --line:rgba(190,176,156,.36); --line-2:rgba(190,176,156,.62); --grid:rgba(190,176,156,.20);
+    --accent:#e0682e; --accent-wash:rgba(224,104,46,.08);
+    --moon:#f2c75c; --eyes:#f2c75c; --body-fill:#1f1c18;
+    --pill:#efe7d9; --sel:#efe7da; --shadow:0 1px 2px rgba(60,45,25,.06),0 8px 24px -16px rgba(60,45,25,.22);
+  }
+  .theme-night{
+    --canvas:#12100d; --raised:#1a1713; --inset:#15120f; --side:#0f0d0b;
+    --ink:#ece3d1; --ink-2:rgba(236,227,209,.70); --ink-3:rgba(236,227,209,.46);
+    --line:rgba(236,227,209,.09); --line-2:rgba(236,227,209,.16); --grid:rgba(236,227,209,.05);
+    --accent:#e48a52; --accent-wash:rgba(228,138,82,.09);
+    --moon:#e2c77a; --eyes:#e2c77a; --body-fill:#0b0a08;
+    --pill:#221e19; --sel:#211d18; --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 28px -16px rgba(0,0,0,.7);
+  }
+  html,body{margin:0}
+  body{font-family:Nunito,system-ui,sans-serif}
+  body.standalone{background:#e9e2d4;padding:28px}
+  .wrap{max-width:1280px;margin:0 auto}
+  .switcher{display:flex;gap:6px;margin:0 0 12px;font:700 14px Nunito,sans-serif;color:#8a806c}
+  .switcher button{font:700 13px Nunito,sans-serif;border:1px solid rgba(138,128,108,.4);background:transparent;color:inherit;border-radius:999px;padding:6px 12px;cursor:pointer}
+  .switcher button.on{background:#1f1c18;color:#fbf6ec;border-color:transparent}
+  .fit{position:relative;width:100%}
+  .app{width:1280px;height:800px;transform-origin:0 0;position:absolute;left:0;top:0;border-radius:14px;overflow:hidden;
+    background:var(--canvas);color:var(--ink);border:1px solid var(--line-2);display:grid;grid-template-columns:212px 1fr 372px;grid-template-rows:56px 1fr;transition:background .3s,color .3s}
+
+  /* sidebar */
+  .side{grid-row:1/-1;background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:14px 8px}
+  .logo{display:flex;align-items:center;gap:8px;padding:2px 8px 14px;font:400 22px/1 "Lilita One";letter-spacing:.01em}
+  .logo .g{width:22px;height:22px}
+  .ws{display:flex;align-items:center;gap:8px;margin:0 4px 14px;padding:6px 8px;border-radius:8px;font:700 14px Nunito}
+  .ws i{width:20px;height:20px;border-radius:5px;background:var(--pill);display:grid;place-items:center;font:800 11px Nunito;font-style:normal;color:var(--ink-2)}
+  .ws span{margin-left:auto;color:var(--ink-3)}
+  .nav a{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;font:600 14.5px Nunito;color:var(--ink-2);text-decoration:none}
+  .nav a.on{background:var(--sel);color:var(--ink)}
+  .nav a b{margin-left:auto;font:700 12.5px Nunito;color:var(--ink-3)}
+  .nav .h{font:800 12px Nunito;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);padding:16px 10px 6px}
+  .nav .ag{display:flex;align-items:center;gap:9px;padding:5px 10px;border-radius:8px;font:600 14.5px Nunito;color:var(--ink)}
+  .nav .ag small{margin-left:auto;font:600 12.5px Nunito;color:var(--ink-3)}
+  .nav .ag small.need{color:var(--accent)}
+  .tile{width:22px;height:22px;flex:none}
+  .tile svg{width:100%;height:100%;overflow:visible}
+  .me{margin-top:auto;border-top:1px solid var(--line);padding:12px 8px 2px;display:flex;align-items:center;gap:10px;font:700 14px Nunito}
+  .me small{display:block;font:600 12.5px Nunito;color:var(--ink-3)}
+  .hav{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:800 11px Nunito;color:#1f1c18;flex:none}
+
+  /* top bar */
+  .top{grid-column:2/-1;display:flex;align-items:center;gap:14px;padding:0 16px 0 20px;border-bottom:1px solid var(--line)}
+  .top .t{font:800 16px Nunito}
+  .seg{display:flex;background:var(--inset);border-radius:9px;padding:3px}
+  .seg span{font:700 13.5px Nunito;color:var(--ink-3);padding:5px 12px;border-radius:7px}
+  .seg span.on{background:var(--raised);color:var(--ink);box-shadow:var(--shadow)}
+  .live{display:inline-flex;align-items:center;gap:6px;font:700 13px Nunito;color:#3f7a3a;background:rgba(80,150,70,.12);padding:3px 9px;border-radius:999px}
+  .live i{width:6px;height:6px;border-radius:50%;background:#4f9a47}
+  .theme-night .live{color:#9ccf8f}
+  .stat{font:600 13.5px Nunito;color:var(--ink-3)} .stat b{color:var(--ink);font-weight:800;margin-left:4px}
+  .sp{flex:1}
+  .b{font:700 13.5px Nunito;border-radius:9px;padding:7px 13px;border:1px solid var(--line-2);background:var(--raised);color:var(--ink)}
+  .b.dark{background:var(--ink);color:var(--canvas);border-color:transparent}
+  .b.acc{color:var(--accent);border-color:rgba(224,104,46,.35);background:transparent}
+
+  /* canvas */
+  .cv{position:relative;overflow:hidden;background:
+    linear-gradient(var(--grid) 1px,transparent 1px) 0 0/32px 32px,
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px) 0 0/32px 32px, var(--canvas)}
+  .wires{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+  .wires path{fill:none;stroke:var(--line-2);stroke-width:1.5}
+  .wires path.hot{stroke:var(--accent);stroke-width:1.6}
+  .tag{position:absolute;transform:translate(-50%,-50%);font:700 12.5px Nunito;color:var(--ink-2);background:var(--pill);border:1px solid var(--line);border-radius:999px;padding:2px 9px;white-space:nowrap}
+  .node{position:absolute;width:236px;background:var(--raised);border:1px solid var(--line-2);border-radius:12px;padding:12px 12px 11px;box-shadow:var(--shadow);transition:border-color .3s,box-shadow .3s}
+  .node.sel{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-wash),var(--shadow)}
+  .node.ping{animation:ping 1.2s ease-out}
+  @keyframes ping{0%{box-shadow:0 0 0 0 rgba(224,104,46,.28),var(--shadow)}100%{box-shadow:0 0 0 14px rgba(224,104,46,0),var(--shadow)}}
+  .node .hd{display:flex;align-items:center;gap:10px}
+  .node .av{width:40px;height:40px;flex:none;border-radius:10px;background:var(--inset);display:grid;place-items:center}
+  .node .av svg{width:34px;height:34px;overflow:visible}
+  .node .nm{font:800 15px Nunito;line-height:1.2}
+  .node .nm small{font:600 12.5px Nunito;color:var(--ink-3);margin-left:4px}
+  .node .st{font:600 13px Nunito;color:var(--ink-2);margin-top:1px}
+  .node .metric{font:700 13px Nunito;color:var(--accent);margin-top:8px}
+  .node .metric.ok{color:#3f7a3a}
+  .theme-night .node .metric.ok{color:#9ccf8f}
+  .node .thumb{margin-top:10px;border-radius:7px;overflow:hidden;border:1px solid var(--line)}
+  .node.ask{border-color:rgba(224,104,46,.5);background:linear-gradient(180deg,var(--accent-wash),var(--raised))}
+  .node.ask .q{font:400 19px/1.15 "Lilita One";margin:6px 0 10px}
+  .node.ask .row{display:flex;gap:6px}.node.ask .row .b{padding:6px 12px;font-size:13px}
+  .node.open{background:transparent;border-style:dashed;box-shadow:none}
+  .hint{position:absolute;left:16px;right:16px;bottom:14px;background:var(--raised);border:1px solid var(--line-2);border-radius:12px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;padding:9px 10px 9px 14px;font:600 14px Nunito;color:var(--ink-3)}
+  .hint .last{color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0} .hint .last b{color:var(--ink)}
+  .dot{position:absolute;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--accent-wash);opacity:0;z-index:5}
+  .flynote{position:absolute;transform:translate(-50%,-150%);font:700 13px Nunito;background:var(--ink);color:var(--canvas);padding:5px 10px;border-radius:8px;white-space:nowrap;opacity:0;z-index:6;pointer-events:none}
+  .cur{position:absolute;z-index:7;transition:left 1.4s cubic-bezier(.2,0,0,1),top 1.4s cubic-bezier(.2,0,0,1);pointer-events:none}
+  .cur svg{width:18px;height:18px;display:block}
+  .cur span{display:inline-block;margin:1px 0 0 12px;font:800 12px Nunito;color:#1f1c18;padding:2px 7px;border-radius:5px}
+
+  /* inspector */
+  .insp{border-left:1px solid var(--line);background:var(--canvas);display:flex;flex-direction:column;overflow:hidden}
+  .insp .tabs{display:flex;gap:16px;padding:14px 18px 0;border-bottom:1px solid var(--line)}
+  .insp .tabs span{font:700 14px Nunito;color:var(--ink-3);padding-bottom:10px}
+  .insp .tabs span.on{color:var(--ink);box-shadow:inset 0 -2px 0 var(--ink)}
+  .insp .tabs span b{font-weight:700;color:var(--ink-3);margin-left:4px}
+  .sec{padding:16px 18px;border-bottom:1px solid var(--line)}
+  .sec .k{font:800 12px Nunito;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);display:flex;align-items:center;gap:8px}
+  .sec .k span{margin-left:auto;letter-spacing:0;text-transform:none;font-weight:600}
+  .who{display:flex;align-items:center;gap:12px}
+  .who .big{width:52px;height:52px;position:relative}
+  .who .big svg{width:100%;height:100%;overflow:visible}
+  .who h3{margin:0;font:400 26px/1 "Lilita One"}
+  .who p{margin:3px 0 0;font:600 13.5px Nunito;color:var(--ink-3)}
+  .screen{position:relative;margin-top:10px;border-radius:9px;overflow:hidden;border:1px solid var(--line-2);background:#14110d}
+  .perch{position:absolute;right:10px;top:-34px;width:52px;height:52px;z-index:2}
+  .ctl{display:flex;gap:6px;margin-top:10px}.ctl .b{padding:6px 11px;font-size:13px}
+  .steps .s{display:flex;gap:10px;align-items:flex-start;padding:7px 0;font:600 13.5px/1.35 Nunito;color:var(--ink-2);animation:in .4s cubic-bezier(.16,1,.3,1)}
+  @keyframes in{from{opacity:0;transform:translateY(5px)}}
+  .steps .s i{flex:none;width:20px;height:20px;border-radius:6px;background:var(--inset);display:grid;place-items:center;font:800 10.5px Nunito;font-style:normal;color:var(--ink-2)}
+  .steps .s b{color:var(--ink);font-weight:800}
+  .steps .s time{margin-left:auto;font:600 12.5px Nunito;color:var(--ink-3);white-space:nowrap}
+
+  /* the VM desktop (stand-in for the real boat stream) */
+  .desk{position:relative;aspect-ratio:16/9;background:linear-gradient(180deg,#1b1813,#2a2218 70%,#3a2e1f);overflow:hidden}
+  .desk::before{content:"";position:absolute;right:7%;top:12%;width:30%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 42% 38%,#d9cdb0,#b9a984);opacity:.32}
+  .desk .bar{position:absolute;left:0;right:0;top:0;height:7%;background:#0b0a08}
+  .desk .win{position:absolute;left:6%;top:13%;width:80%;height:80%;background:#f6f3ec;border-radius:3px;overflow:hidden;box-shadow:0 6px 14px rgba(0,0,0,.45)}
+  .desk .win .u{height:11%;margin:3% 3% 2%;background:#e8e4da;border-radius:5px}
+  .desk .win .r{height:7%;margin:3.4% 4%;border-radius:2px;background:#e5e0d5;display:flex;justify-content:flex-end}
+  .desk .win .r b{width:20%;border-radius:2px;background:#f0cdb5}
+  .desk .win .r.ok b{background:#c3dcb5}
+  .desk .mc{position:absolute;width:10px;height:10px;transition:left .8s cubic-bezier(.2,0,0,1),top .8s cubic-bezier(.2,0,0,1)}
+  .desk .mc svg{width:100%;height:100%}
+
+  /* character bits */
+  .blink{animation:blink 6s infinite;transform-box:fill-box;transform-origin:center;animation-delay:var(--bd,0s)}
+  @keyframes blink{0%,95%,100%{transform:scaleY(1)}97%{transform:scaleY(.1)}}
+  .breathe{transform-origin:50% 100%;animation:br 4.2s ease-in-out infinite;animation-delay:var(--d,0s)}
+  @keyframes br{50%{transform:scale(1.02,.985)}}
+  .bob{transform-origin:50% 100%;animation:bob 2.4s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:scale(1,1)}10%{transform:scale(1.03,.97)}22%{transform:scale(1,1)}}
+  .look-down .gz{transform:translate(1px,2.5px)}
+  .wing-l{transform-box:fill-box;transform-origin:100% 50%;animation:wl 1.6s ease-in-out infinite alternate}
+  .wing-r{transform-box:fill-box;transform-origin:0% 50%;animation:wr 1.6s ease-in-out infinite alternate}
+  @keyframes wl{to{transform:rotate(7deg)}} @keyframes wr{to{transform:rotate(-7deg)}}
+  .flame{transform-box:fill-box;transform-origin:50% 100%;animation:fl .6s ease-in-out infinite alternate}
+  @keyframes fl{to{transform:scale(.95,1.05)}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="switcher" id="sw">Theme <button class="on" data-t="paper">Paper</button><button data-t="night">Night</button></div>
+  <div class="fit" id="fit"><div class="app theme-paper" id="app">
+
+    <aside class="side">
+      <div class="logo"><span class="g" id="logo"></span>Casper</div>
+      <div class="ws"><i>L</i>Lore &amp; Co.<span>⌄</span></div>
+      <nav class="nav">
+        <a>Home</a>
+        <a class="on">#refunds</a>
+        <a>#launch<b>3</b></a>
+        <a>#hiring</a>
+        <div class="h">Agents</div>
+        <div id="agentList"></div>
+        <div class="h">People</div>
+        <div class="ag"><span class="hav" style="background:#e3b07a">S</span>Sankritya<small>here</small></div>
+        <div class="ag"><span class="hav" style="background:#b4c6e6">K</span>Kinjal<small>on phone</small></div>
+      </nav>
+      <div class="me"><span class="hav" style="background:#e3b07a">S</span><div>Sankritya<small>Owner</small></div></div>
+    </aside>
+
+    <header class="top">
+      <div class="t">#refunds</div>
+      <div class="seg"><span class="on">Canvas</span><span>Chat</span></div>
+      <span class="live"><i></i>Live</span>
+      <div class="sp"></div>
+      <span class="stat">People<b>2</b></span><span class="stat">Agents<b>5</b></span><span class="stat">Computers<b>2</b></span>
+      <button class="b acc">Summon</button><button class="b dark">Invite</button>
+    </header>
+
+    <main class="cv" id="cv">
+      <svg class="wires" id="wires"></svg>
+      <div id="nodes"></div>
+      <div class="dot" id="dot"></div><div class="flynote" id="flynote"></div>
+      <div class="hint"><span class="last" id="last"><b>Casper</b> answered Jack: $500 a day, over that Kinjal signs off.</span><span class="sp"></span><span style="white-space:nowrap">Message the room</span><button class="b dark" style="padding:6px 12px">Send</button></div>
+    </main>
+
+    <aside class="insp">
+      <div class="tabs"><span class="on">Jack</span><span>Chat<b>12</b></span><span>Tasks<b>4</b></span></div>
+      <div class="sec">
+        <div class="who"><div class="big" id="whoJack"></div><div><h3>Jack</h3><p>Sankritya's agent · in Stripe</p></div></div>
+      </div>
+      <div class="sec" style="padding-top:22px">
+        <div class="k">Live computer <span>boat.dev · 1080p</span></div>
+        <div class="screen"><div class="desk" id="deskBig"></div></div>
+        <div class="ctl"><button class="b">Watch full screen</button><button class="b">Steer</button><button class="b">Stop</button></div>
+      </div>
+      <div class="sec steps" style="border-bottom:0;flex:1;overflow:hidden" id="steps">
+        <div class="k">Steps <span id="stepCount">5 of 14 refunds</span></div>
+      </div>
+    </aside>
+
+  </div></div>
+</div>
+
+<script>
+if (window.top === window.self) document.body.classList.add('standalone');
+const E='var(--eyes)', K='var(--body-fill)';
+const eyes=(pts,round)=>pts.map(([x,y],i)=>`<g transform="translate(${x} ${y})"><g class="gz"><g class="blink" style="--bd:${i*.05}s"><path fill="${E}" d="${round?'M0 -6.5 a4.6 6.5 0 1 0 .01 0':'M-6 -1 Q0 -7 6 -1 Q0 3.2 -6 -1 Z'}"/></g></g></g>`).join('');
+const CH={
+  casper:()=>`<rect x="10" y="44" width="20" height="34" rx="3" fill="${K}"/><path d="M24 50 L42 58" stroke="${K}" stroke-width="5"/><circle cx="16" cy="54" r="1.8" fill="${E}"/><circle cx="16" cy="62" r="1.8" fill="${E}" opacity=".5"/>
+    <circle cx="60" cy="42" r="28" fill="${K}"/><path fill="${K}" d="M34 52 C34 78 46 96 64 104 C74 108 86 104 92 96 C84 99 75 96 73 88 C84 76 88 62 86 52 Z"/><path fill="${K}" d="M84 60 Q96 52 100 40 Q104 48 90 64 Z"/>
+    ${eyes([[50,42],[70,42]],1)}<path d="M54 56 Q60 60 66 56" stroke="${E}" stroke-width="2" fill="none" stroke-linecap="round"/>`,
+  jack:()=>`<path fill="${K}" d="M57 34 Q55 22 62 16 Q67 13 68 17 Q61 23 63 34 Z"/><path fill="${K}" d="M60 34 C76 30 100 38 101 66 C102 92 82 100 60 98 C38 100 18 92 19 66 C20 38 44 30 60 34 Z"/>
+    <path d="M20 54 Q60 34 100 54" stroke="${K}" stroke-width="5" fill="none"/><circle cx="47" cy="44" r="9" fill="${K}"/><circle cx="73" cy="44" r="9" fill="${K}"/><circle cx="47" cy="44" r="5" fill="none" stroke="#8fcf78" stroke-width="1.6"/><circle cx="73" cy="44" r="5" fill="none" stroke="#8fcf78" stroke-width="1.6"/>
+    ${eyes([[47,64],[73,64]])}<path fill="#e0a060" d="M42 78 L49 85 L54 79 L60 86 L66 79 L71 85 L78 78 Q60 94 42 78 Z"/>`,
+  batty:()=>`<path class="wing-l" fill="${K}" d="M36 60 Q20 40 4 50 Q12 56 10 66 Q18 62 22 72 Q28 64 36 72 Z"/><path class="wing-r" fill="${K}" d="M84 60 Q100 40 116 50 Q108 56 110 66 Q102 62 98 72 Q92 64 84 72 Z"/>
+    <path fill="${K}" d="M42 44 L44 24 L54 38 Q60 36 66 38 L76 24 L78 44 Q90 56 88 72 Q86 92 60 92 Q34 92 32 72 Q30 56 42 44 Z"/><path d="M36 50 Q60 22 84 50" stroke="${K}" stroke-width="4" fill="none"/><circle cx="84" cy="54" r="7" fill="${K}"/><path d="M84 60 Q84 78 68 80" stroke="${K}" stroke-width="3" fill="none"/><circle cx="67" cy="80" r="2.6" fill="#d9694e"/>
+    ${eyes([[51,62],[69,62]])}`,
+  wick:()=>`<path class="flame" fill="${E}" d="M60 12 Q71 25 66 34 Q63 40 60 40 Q57 40 54 34 Q49 25 60 12 Z"/><path fill="${K}" d="M38 52 Q38 44 46 44 L74 44 Q82 44 82 52 L82 104 L38 104 Z"/><path fill="${K}" d="M42 46 Q44 62 47 60 Q50 58 50 46 Z M68 46 Q69 66 73 64 Q76 62 76 46 Z"/>${eyes([[51,70],[69,70]])}`,
+  luna:()=>`<path fill="${K}" d="M66 14 C40 16 22 38 22 62 C22 88 42 106 68 106 C78 106 86 102 92 96 C70 96 52 80 52 58 C52 40 62 24 76 16 C73 14 70 14 66 14 Z"/><path fill="${K}" d="M44 26 Q58 2 92 6 Q104 10 102 22 Q90 14 78 22 Q62 18 44 26 Z"/><circle cx="104" cy="24" r="6" fill="${K}"/><path d="M25 56 Q31 59 37 56 M38 60 Q44 63 50 60" stroke="${E}" stroke-width="2" fill="none" stroke-linecap="round"/>`,
+};
+const svg=(k,cls='breathe')=>`<svg viewBox="0 0 120 120"><g class="${cls}">${CH[k]()}</g></svg>`;
+const CUR='<svg viewBox="0 0 18 18"><path d="M2 1 L2 15 L6 11 L9 17 L11 16 L8 10 L14 10 Z" fill="#1f1c18" stroke="#fff" stroke-width="1.2"/></svg>';
+const desk=(rows,ok)=>`<div class="bar"></div><div class="win"><div class="u"></div>${Array.from({length:rows},(_,i)=>`<div class="r${i<ok?' ok':''}"><b></b></div>`).join('')}</div><div class="mc" style="left:72%;top:50%">${CUR}</div>`;
+
+document.getElementById('logo').innerHTML=`<svg viewBox="0 0 120 120" style="width:22px;height:22px;overflow:visible"><circle cx="60" cy="42" r="28" fill="var(--ink)"/><path fill="var(--ink)" d="M34 52 C34 78 46 96 64 104 C74 108 86 104 92 96 C84 99 75 96 73 88 C84 76 88 62 86 52 Z"/><circle cx="50" cy="42" r="5" fill="var(--canvas)"/><circle cx="70" cy="42" r="5" fill="var(--canvas)"/></svg>`;
+document.getElementById('agentList').innerHTML=[['jack','Jack','in Stripe'],['batty','Batty','needs Kinjal',1],['casper','Casper','team memory'],['wick','Wick','taking notes'],['luna','Luna','asleep']].map(([k,n,s,need])=>`<div class="ag"><span class="tile">${svg(k)}</span>${n}<small class="${need?'need':''}">${s}</small></div>`).join('');
+document.getElementById('whoJack').innerHTML=svg('jack','bob look-down');
+
+/* nodes on the canvas (positions in canvas coords) */
+const N={
+  casper:{x:328,y:40, html:`<div class="hd"><div class="av">${svg('casper')}</div><div><div class="nm">Casper<small>team</small></div><div class="st">Holds Dev's refund playbook</div></div></div><div class="metric ok">Answered 3 questions today</div>`},
+  jack:{x:40,y:214, sel:1, html:`<div class="hd"><div class="av">${svg('jack','bob look-down')}</div><div><div class="nm">Jack<small>Sankritya's</small></div><div class="st">Refunding double charges</div></div></div><div class="thumb"><div class="desk" id="deskJ">${desk(6,3)}</div></div><div class="metric" id="mJ">5 of 14 refunded</div>`},
+  batty:{x:420,y:236, html:`<div class="hd"><div class="av">${svg('batty')}</div><div><div class="nm">Batty<small>Kinjal's</small></div><div class="st">Drafting the apology emails</div></div></div><div class="thumb"><div class="desk">${desk(5,0)}</div></div><div class="metric ok">3 of 14 drafted</div>`},
+  ask:{x:420,y:522, cls:'ask', html:`<div class="nm" style="color:var(--accent);font-size:12.5px;letter-spacing:.06em;text-transform:uppercase">Needs Kinjal</div><div class="q">Approve $2,712 over the daily limit?</div><div class="row"><button class="b">Not now</button><button class="b dark">Approve</button></div>`},
+  wick:{x:40,y:540, html:`<div class="hd"><div class="av">${svg('wick')}</div><div><div class="nm">Wick<small>team</small></div><div class="st">Writing the refund log</div></div></div>`},
+};
+const nodesEl=document.getElementById('nodes');
+nodesEl.innerHTML=Object.entries(N).map(([k,n])=>`<div class="node ${n.cls||''} ${n.sel?'sel':''}" id="n-${k}" style="left:${n.x}px;top:${n.y}px;${n.w?`width:${n.w}px`:''}">${n.html}</div>`).join('');
+
+const cv=document.getElementById('cv'), wires=document.getElementById('wires');
+const anchor=(k,side)=>{ const el=document.getElementById('n-'+k); const x=el.offsetLeft, y=el.offsetTop, w=el.offsetWidth, h=el.offsetHeight;
+  return side==='b'?[x+w/2,y+h]:side==='t'?[x+w/2,y]:side==='r'?[x+w,y+h/2]:[x,y+h/2]; };
+const EDGES=[['casper','b','jack','t','asked',0],['casper','b','batty','t','',0],['jack','r','batty','l','handed off',1],['batty','b','ask','t','asks Kinjal',1],['jack','b','wick','t','logged',0]];
+let paths={};
+function drawWires(){
+  wires.innerHTML=''; document.querySelectorAll('.cv .tag').forEach(t=>t.remove());
+  EDGES.forEach(([a,as,b,bs,label,hot],i)=>{
+    const A=anchor(a,as), B=anchor(b,bs);
+    const c1 = as==='b'?[A[0],A[1]+60]:as==='r'?[A[0]+60,A[1]]:[A[0],A[1]-60];
+    const c2 = bs==='t'?[B[0],B[1]-60]:bs==='l'?[B[0]-60,B[1]]:[B[0],B[1]+60];
+    const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+    p.setAttribute('d',`M${A} C${c1} ${c2} ${B}`); if(hot) p.classList.add('hot'); wires.appendChild(p); paths[a+'>'+b]=p;
+    if(label){ const L=p.getTotalLength(), m=p.getPointAtLength(L/2); const t=document.createElement('div'); t.className='tag'; t.textContent=label; t.style.left=m.x+'px'; t.style.top=m.y+'px'; cv.appendChild(t); }
+  });
+}
+
+/* scale-to-fit */
+const fit=document.getElementById('fit'), app=document.getElementById('app'); let S=1;
+function scale(){ S=Math.min(1,fit.clientWidth/1280); app.style.transform=`scale(${S})`; fit.style.height=(800*S)+'px'; }
+scale(); addEventListener('resize',scale); drawWires();
+
+/* a message travelling along a wire: a small dot plus the note */
+const dot=document.getElementById('dot'), fn=document.getElementById('flynote'), last=document.getElementById('last');
+function send(a,b,text,reverse,after){
+  const p=paths[a+'>'+b]; const L=p.getTotalLength(), t0=performance.now(), D=1400; fn.textContent=text;
+  (function tick(now){ const t=Math.min(1,(now-t0)/D), e=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2, pt=p.getPointAtLength((reverse?1-e:e)*L), o=t<.1?t*10:t>.9?(1-t)*10:1;
+    dot.style.left=pt.x+'px'; dot.style.top=pt.y+'px'; fn.style.left=pt.x+'px'; fn.style.top=pt.y+'px'; dot.style.opacity=o; fn.style.opacity=o;
+    if(t<1) requestAnimationFrame(tick); else { const n=document.getElementById('n-'+(reverse?a:b)); n.classList.remove('ping'); void n.offsetWidth; n.classList.add('ping'); after&&after(); } })(t0);
+}
+function story(){
+  send('casper','jack','What’s our refund limit?',true,()=>{});
+  setTimeout(()=>send('casper','jack','$500 a day. Over that, Kinjal signs off.',false,()=>{ last.innerHTML='<b>Casper</b> answered Jack: $500 a day, over that Kinjal signs off.'; }),2200);
+  setTimeout(()=>send('jack','batty','11 refunds are over the limit',false,()=>{ last.innerHTML='<b>Jack</b> handed the over-limit refunds to <b>Batty</b>.'; }),4400);
+  setTimeout(()=>send('batty','ask','Need Kinjal’s yes for $2,712',false,()=>{ last.innerHTML='<b>Batty</b> is waiting on <b>Kinjal</b> for $2,712.'; moveK(); }),6600);
+  setTimeout(story,12000);
+}
+setTimeout(story,700);
+
+/* Kinjal's cursor drifts to the approval */
+const cK=document.createElement('div'); cK.className='cur'; cK.innerHTML=CUR+'<span style="background:#b4c6e6">Kinjal</span>'; cK.style.left='760px'; cK.style.top='640px'; cv.appendChild(cK);
+const cS=document.createElement('div'); cS.className='cur'; cS.innerHTML=CUR+'<span style="background:#e3b07a">Sankritya</span>'; cS.style.left='200px'; cS.style.top='380px'; cv.appendChild(cS);
+function moveK(){ cK.style.left='600px'; cK.style.top='640px'; setTimeout(()=>{ cK.style.left='760px'; cK.style.top='690px'; },3200); }
+
+/* live computer: inspector desktop + steps */
+const big=document.getElementById('deskBig'); big.innerHTML=desk(8,5);
+const steps=document.getElementById('steps'), cnt=document.getElementById('stepCount'), mJ=document.getElementById('mJ');
+const addStep=(ic,h,t)=>{ const s=document.createElement('div'); s.className='s'; s.innerHTML=`<i>${ic}</i><div>${h}</div><time>${t}</time>`; steps.insertBefore(s,steps.children[1]); const all=steps.querySelectorAll('.s'); if(all.length>7) all[all.length-1].remove(); };
+[['Go','Opened <b>dashboard.stripe.com</b>','10:12:04'],['Ty','Searched <b>"duplicate"</b>','10:12:09'],['Re','Found <b>14 duplicate charges</b>','10:12:15'],['Cl','Refunded <b>jess.m</b>, $248','10:12:31'],['Cl','Refunded <b>p.okafor</b>, $310','10:12:44']].forEach(a=>addStep(...a));
+const who=['dana.k, $96','li.wei, $412','sam.r, $188','m.ortiz, $140','t.nguyen, $275'];
+let done=5, sec=58;
+setInterval(()=>{
+  const rows=[...big.querySelectorAll('.r')], i=done%rows.length, r=rows[i], mc=big.querySelector('.mc');
+  if(i===0) rows.forEach(x=>x.classList.remove('ok'));
+  mc.style.left='78%'; mc.style.top=(r.offsetTop+big.querySelector('.win').offsetTop+2)+'px';
+  setTimeout(()=>{ r.classList.add('ok'); done++; sec+=13; const n=Math.min(14,done); cnt.textContent=`${n} of 14 refunds`; mJ.textContent=`${n} of 14 refunded`; addStep('Cl',`Refunded <b>${who[done%who.length]}</b>`,`10:13:${String(sec%60).padStart(2,'0')}`); if(done>=14){ done=5; } },800);
+  const tj=document.querySelector('#deskJ .mc'); tj.style.left=(64+Math.random()*20)+'%'; tj.style.top=(30+Math.random()*50)+'%';
+},2600);
+
+/* theme switch */
+document.getElementById('sw').addEventListener('click',e=>{ const t=e.target.dataset.t; if(!t) return; app.className='app theme-'+t; document.querySelectorAll('#sw button').forEach(b=>b.classList.toggle('on',b.dataset.t===t)); });
+</script>
+</body>
+</html>

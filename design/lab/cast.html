@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Casper · the cast in costume</title>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap" rel="stylesheet">
+<style>
+  body{margin:0;background:#121114;color:#f1eff4;font:400 14px/1.5 Satoshi,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  .page{width:1200px;margin:0 auto;padding:48px 0 80px}
+  .hero{position:relative;height:560px;border-radius:22px;overflow:hidden;background:radial-gradient(600px 380px at 50% 70%,rgba(245,138,51,.22),transparent 70%),radial-gradient(700px 400px at 80% 0%,rgba(155,135,255,.18),transparent 70%),#1a1820;border:1px solid #2c2b32}
+  .hero .big{position:absolute;left:50%;top:30px;width:420px;height:500px;transform:translateX(-50%);z-index:2}
+  .hero .name{position:absolute;left:0;right:0;bottom:22px;text-align:center;font:900 190px/1 Satoshi;letter-spacing:-.04em;color:#f1eff4;z-index:1;pointer-events:none;color:rgba(241,239,244,.13)}
+  .hero .costume{position:absolute;left:28px;top:24px;font:500 13px Satoshi;color:#b4b1bb;background:#222127;border:1px solid #3a3941;border-radius:99px;padding:5px 12px}
+  .hero .dots{position:absolute;right:28px;top:28px;display:flex;gap:6px}
+  .hero .dots i{width:7px;height:7px;border-radius:50%;background:#3a3941}.hero .dots i.on{background:#f58a33}
+  h2{font:700 22px Satoshi;margin:48px 0 14px}
+  .grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+  .tile{background:#1b1a1f;border:1px solid #2c2b32;border-radius:16px;padding:10px 10px 14px;text-align:center;cursor:pointer;transition:border-color .2s}
+  .tile:hover,.tile.on{border-color:#f58a33}
+  .tile .c{height:200px}
+  .tile b{display:block;font-size:15px}.tile span{color:#7d7a85;font-size:12px}
+  .row{display:flex;gap:22px;align-items:flex-end}
+  .moods .m{width:120px;height:150px}.moods .l{text-align:center;color:#7d7a85;font-size:12px}
+  .list{width:380px;background:#1b1a1f;border:1px solid #2c2b32;border-radius:14px;padding:6px}
+  .li{display:flex;gap:12px;align-items:center;padding:8px 10px}
+  .li .a{width:40px;height:40px;flex:none}.li b{display:block}.li span{color:#8d8a95;font-size:13px}
+  .small{display:flex;gap:12px;align-items:center}.small span{display:block}
+</style></head><body>
+<div class="page">
+  <div class="hero">
+    <span class="costume" id="costume"></span>
+    <div class="dots" id="dots"></div>
+    <div class="big" id="big"></div>
+    <div class="name" id="nm"></div>
+  </div>
+
+  <h2>The cast, in costume</h2>
+  <div class="grid" id="grid"></div>
+
+  <h2>The house crew: the Ghostly Trio</h2>
+  <div class="grid" id="trio" style="grid-template-columns:repeat(4,1fr)"></div>
+
+  <h2>Moods (they drive agent states)</h2>
+  <div class="row moods" id="moods"></div>
+
+  <h2>Small sizes use a head crop</h2>
+  <div class="row"><div class="list" id="list"></div><div class="small" id="small"></div></div>
+</div>
+<script src="cast.js"></script>
+<script>
+const CAST=[['casper','Casper','the room’s ghost','as a vampire'],['pumpkin','Jack','Sankritya’s Claude Code','as a skeleton'],['bat','Batty','Kinjal’s Codex','as a witch'],
+  ['candle','Wick','Growth’s agent','as a mummy'],['moon','Luna','night shift','as Frankenstein'],['cat','Salem','finance agent','as a little devil']];
+let cur=0;const nm_=document.getElementById("nm");
+function show(i){cur=i;const [k,nm,,cos]=CAST[i];
+  big.innerHTML=Cast.svg(k,{mood:'happy'});nm_.textContent=nm;costume.textContent=nm+' '+cos;
+  dots.innerHTML=CAST.map((_,j)=>`<i class="${j===i?'on':''}"></i>`).join('');
+  document.querySelectorAll('.tile').forEach((t,j)=>t.classList.toggle('on',j===i));}
+grid.innerHTML=CAST.map(([k,nm,who],i)=>`<div class="tile" onclick="show(${i});clearInterval(timer)"><div class="c">${Cast.svg(k)}</div><b>${nm}</b><span>${who}</span></div>`).join('');
+moods.innerHTML=['calm','alert','worried','sleep','happy'].map(m=>`<div><div class="m">${Cast.svg('pumpkin',{mood:m})}</div><div class="l">${m}</div></div>`).join('');
+list.innerHTML=[['bat','Batty','claimed “build Y”'],['pumpkin','Jack','waiting for your review'],['candle','Wick','launch post drafted'],['casper','Casper','remembered: autopay is opt-in']]
+  .map(([k,n,t])=>`<div class="li"><div class="a">${Cast.svg(k,{crop:'head'})}</div><div><b>${n}</b><span>${t}</span></div></div>`).join('');
+small.innerHTML=CAST.map(([k])=>`<span style="width:24px;height:24px">${Cast.svg(k,{crop:'head'})}</span>`).join('')+CAST.map(([k])=>`<span style="width:16px;height:16px">${Cast.svg(k,{crop:'head',still:true})}</span>`).join('');
+trio.innerHTML=[['casper','Casper','the host'],['stretch','Stretch','dispatcher'],['fatso','Fatso','the Library'],['stinkie','Stinkie','watchdog']].map(([k,n,w])=>`<div class="tile"><div class="c">${Cast.svg(k)}</div><b>${n}</b><span>${w}</span></div>`).join('');
+show(0);const timer=setInterval(()=>show((cur+1)%CAST.length),3500);
+</script>
+</body></html>

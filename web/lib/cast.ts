@@ -313,6 +313,7 @@ const Cast: { svg: (kind: string, o?: { mood?: string; crop?: string; still?: bo
     document.head.appendChild(st);
   };
 
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   function svg(kind, { mood = 'calm', crop = 'full', still = false, title } = {}) {
     defs();
     const id = 'ch' + (++n), grads = [];
@@ -320,7 +321,7 @@ const Cast: { svg: (kind: string, o?: { mood?: string; crop?: string; still?: bo
     const art = DRAW[k](shade(id, grads), mood);
     const vb = crop === 'head' ? CROP[k] : k === 'stretch' ? '-10 -34 220 268' : '0 -6 200 240';
     const vars = `--d:${(-(n * 1.37) % 4).toFixed(2)}s;--bo:${(2.4 + (n % 4) * .2).toFixed(1)}s;--wv:${(3.8 + (n % 3) * .7).toFixed(1)}s;--bl:${(4.4 + (n % 5) * .6).toFixed(1)}s;--tl:${(5.5 + (n % 3)).toFixed(1)}s;--tp:${(4.5 + (n % 4) * .6).toFixed(1)}s`;
-    return `<svg class="ch k-${k}${crop === "head" ? " crop" : ""}${still ? ' still' : ''}" viewBox="${vb}" style="${vars}" role="img" aria-label="${title || k}">
+    return `<svg class="ch k-${k}${crop === "head" ? " crop" : ""}${still ? ' still' : ''}" viewBox="${vb}" style="${vars}" role="img" aria-label="${esc(title || k)}">
       <defs>${grads.join('')}</defs><g filter="url(#ch-ink)"><g class="bob">${art}</g></g></svg>`;
   }
   function mountAll(root = document) {
