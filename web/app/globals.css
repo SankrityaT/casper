@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+@theme {
+  --color-night: #0f0e12;
+  --color-night-2: #17151c;
+  --color-card: #1d1b22;
+  --color-line: #2c2a33;
+  --color-ink: #f3f0f6;
+  --color-ink-2: #b8b3c0;
+  --color-ink-3: #7f7a88;
+  --color-pumpkin: #f58a33;
+  --color-pumpkin-2: #ffb066;
+  --color-violet: #9b87ff;
+  --color-moss: #58c47e;
+
+  --font-sans: var(--font-satoshi), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-zodiak), Georgia, serif;
+  --font-mono: var(--font-mono-face), ui-monospace, monospace;
+
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+:root {
+  --dur-s: 0.4s;
+  --dur-m: 0.8s;
+  --dur-l: 1.2s;
+  color-scheme: dark;
+}
+
+::selection {
+  background: var(--color-pumpkin);
+  color: #1b1206;
+}
+
+@keyframes dash {
+  to { stroke-dashoffset: -14; }
+}
+
+@keyframes slot-in {
+  from { transform: translateY(70%) rotate(-12deg) scale(0.7); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+@keyframes twinkle { 0%, 100% { opacity: 0.85; } 50% { opacity: 0.2; } }
+@keyframes drift { from { transform: translateX(-18px); } to { transform: translateX(22px); } }
+@keyframes flap { from { transform: scaleY(1); } to { transform: scaleY(0.35); } }
+@keyframes fly {
+  0% { transform: translate(-120px, 40px); }
+  45% { transform: translate(110vw, -60px); }
+  100% { transform: translate(110vw, -60px); }
+}
+@keyframes flicker { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+@media (prefers-reduced-motion: reduce) {
+  [class*="animate-["] { animation: none !important; }
+}
+
+@keyframes floaty { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+@keyframes msg-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+@layer components {
+  .inp { @apply h-[42px] w-full rounded-[10px] border border-line bg-night px-3 text-[14px] font-medium text-ink outline-none focus:border-pumpkin; }
+  .btn-ghost { @apply h-[42px] rounded-xl border border-line bg-card px-4 text-[14px] font-bold text-ink hover:bg-[#26252b]; }
+}
+
+@keyframes grow { from { width: 0; } to { width: 100%; } }
