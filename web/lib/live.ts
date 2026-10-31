@@ -328,3 +328,32 @@ export function me(): string {
   if (q && /^[a-z0-9._-]{1,40}$/i.test(q)) localStorage.setItem("casper.me", q.toLowerCase());
   return localStorage.getItem("casper.me") ?? "sankritya";
 }
+
+/* ---------- the wing, from the hub (people, agents, bells, library, usage) ---------- */
+export type Wing = {
+  rooms: HubRoom[];
+  people: { name: string; rooms: string[]; last: number; approvals: number }[];
+  agents: { name: string; rooms: string[]; last: number; lastText: string; lastRoom: string; total: number; reached: number; quiet: number; relay: number; claims: string[]; bells: number; working: boolean }[];
+  bells: { room: string; askId: string; from: string; title: string; for: string; files: string[]; ts: number; seq: number; status: string; decidedBy: string | null; decidedAt: number | null }[];
+  library: { kind: "transcript" | "tasks" | "decision" | "branch" | "answer"; room: string; title: string; detail: string; by: string; ts: number; seq: number }[];
+  usage: { ai: { calls: number; failures: number; promptTokens: number; completionTokens: number; byModel: Record<string, number> }; totals: { agentMessages: number; reached: number; quiet: number; relay: number } };
+};
+let wingSnap: Wing | null = null;
+const wingSubs = new Set<() => void>();
+let wingTimer: ReturnType<typeof setInterval> | null = null;
+const loadWing = () => fetch(`${HUB.url}/wing`, { cache: "no-store" }).then((r) => r.json()).then((w: Wing) => { wingSnap = w; wingSubs.forEach((f) => f()); }).catch(() => {});
+export function useWing(): Wing | null {
+  return useSyncExternalStore(
+    (f) => {
+      wingSubs.add(f);
+      if (!wingTimer && HUB.url) { loadWing(); wingTimer = setInterval(loadWing, 4000); }
+      return () => { wingSubs.delete(f); if (!wingSubs.size && wingTimer) { clearInterval(wingTimer); wingTimer = null; } };
+    },
+    () => wingSnap,
+    () => null,
+  );
+}
+export const ago = (t: number) => {
+  const s = Math.max(0, (Date.now() - t) / 1000);
+  return s < 60 ? "just now" : s < 3600 ? `${Math.floor(s / 60)} min ago` : s < 86400 ? `${Math.floor(s / 3600)} h ago` : new Date(t).toLocaleDateString();
+};

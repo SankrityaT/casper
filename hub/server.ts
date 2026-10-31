@@ -4,7 +4,7 @@ import { createBunWebSocket } from "hono/bun"
 import type { ServerWebSocket } from "bun"
 import { actors } from "./generated/index.js"
 import type { RoomEvent } from "./src/actors.ts"
-import { answerFromRoom, meetingToTasks, triage } from "./src/ai.ts"
+import { answerFromRoom, meetingToTasks, triage, usage } from "./src/ai.ts"
 import { seal } from "./src/seal.ts"
 import { summon, stop, status } from "./src/summon.ts"
 
@@ -200,6 +200,66 @@ app.post("/room/:room/summon/:name/stop", async (c) => {
   return c.json({ ok })
 })
 app.get("/room/:room/agents", (c) => c.json(status(c.req.param("room"))))
+
+/* the whole wing at a glance, computed from every room's log: people, agents, bells, library, usage */
+let wingCache: { at: number; body: unknown } | null = null
+app.get("/wing", async (c) => {
+  if (wingCache && Date.now() - wingCache.at < 2500) return c.json(wingCache.body)
+  const rooms = await wing.list()
+  const people = new Map<string, { name: string; rooms: Set<string>; last: number; approvals: number }>()
+  const agents = new Map<string, { name: string; rooms: Set<string>; last: number; lastText: string; lastRoom: string; total: number; reached: number; quiet: number; relay: number; claims: string[]; bells: number }>()
+  const bells: { room: string; askId: string; from: string; title: string; for: string; files: string[]; ts: number; seq: number; status: string; decidedBy: string | null; decidedAt: number | null }[] = []
+  const library: { kind: "transcript" | "tasks" | "decision" | "branch" | "answer"; room: string; title: string; detail: string; by: string; ts: number; seq: number }[] = []
+  const ts = (v: unknown) => (typeof v === "number" ? v : Date.parse(String(v)) || 0)
+  for (const r of rooms) {
+    const evs = await room(r.slug).since(0, 2000)
+    const asks = new Map<string, (typeof bells)[number]>()
+    for (const e of evs) {
+      const who = e.from.toLowerCase().split("#")[0], t = ts(e.ts)
+      if (HUMANS.has(who)) {
+        const p = people.get(who) ?? { name: who, rooms: new Set(), last: 0, approvals: 0 }
+        p.rooms.add(r.slug); p.last = Math.max(p.last, t); if (e.kind === "approve") p.approvals++
+        people.set(who, p)
+      } else if (who !== "casper") {
+        const a = agents.get(who) ?? { name: who, rooms: new Set(), last: 0, lastText: "", lastRoom: "", total: 0, reached: 0, quiet: 0, relay: 0, claims: [], bells: 0 }
+        a.rooms.add(r.slug); a.total++
+        if (t >= a.last) { a.last = t; a.lastText = e.text.slice(0, 140); a.lastRoom = r.slug }
+        if (e.kind === "relay") a.relay++
+        else if (e.kind === "msg" && (e.meta?.triage as { act?: string } | undefined)?.act === "silent") a.quiet++
+        else if (e.kind !== "claim") a.reached++
+        if (e.kind === "claim" && e.meta?.ok !== false && !a.claims.includes(String(e.meta?.task ?? e.text))) a.claims.push(String(e.meta?.task ?? e.text))
+        if (e.kind === "bell") a.bells++
+        agents.set(who, a)
+      }
+      if (e.kind === "bell" && e.meta?.askId) {
+        const b = { room: r.slug, askId: String(e.meta.askId), from: e.from, title: String(e.meta.title ?? e.text), for: String(e.meta.for ?? ""), files: (e.meta.files as string[]) ?? [], ts: t, seq: e.seq ?? 0, status: "open", decidedBy: null as string | null, decidedAt: null as number | null }
+        asks.set(b.askId, b); bells.push(b)
+      }
+      if (e.kind === "approve" && e.meta?.askId) {
+        const b = asks.get(String(e.meta.askId))
+        if (b && b.status === "open") {
+          b.status = e.meta.yes ? "approved" : "declined"; b.decidedBy = String(e.meta.by ?? e.from); b.decidedAt = t
+          if (e.meta.yes) library.push({ kind: "decision", room: r.slug, title: b.title, detail: `${b.from} asked; ${b.decidedBy} approved${b.files.length ? ` · ${b.files.join(", ")}` : ""}`, by: b.decidedBy, ts: t, seq: e.seq ?? 0 })
+        }
+      }
+      if (typeof e.meta?.transcript === "string") library.push({ kind: "transcript", room: r.slug, title: `Call shared by ${e.from}`, detail: String(e.meta.transcript), by: e.from, ts: t, seq: e.seq ?? 0 })
+      if (Array.isArray(e.meta?.tasks)) library.push({ kind: "tasks", room: r.slug, title: `${(e.meta!.tasks as unknown[]).length} tasks from a call`, detail: (e.meta!.tasks as { title: string }[]).map((x) => x.title).join(" · "), by: e.from, ts: t, seq: e.seq ?? 0 })
+      if (typeof e.meta?.branch === "string") library.push({ kind: "branch", room: r.slug, title: `Branch ${e.meta.branch}`, detail: e.text, by: e.from, ts: t, seq: e.seq ?? 0 })
+      if (e.from === "casper" && e.meta?.replyTo) library.push({ kind: "answer", room: r.slug, title: `Casper answered ${e.meta.to ?? "someone"}`, detail: e.text, by: "casper", ts: t, seq: e.seq ?? 0 })
+    }
+  }
+  const working = rooms.flatMap((r) => status(r.slug).filter((w) => w.running).map((w) => ({ room: r.slug, name: w.name })))
+  const body = {
+    rooms,
+    people: [...people.values()].map((p) => ({ ...p, rooms: [...p.rooms] })).sort((a, b) => b.last - a.last),
+    agents: [...agents.values()].map((a) => ({ ...a, rooms: [...a.rooms], working: working.some((w) => w.name === a.name) })).sort((a, b) => b.last - a.last),
+    bells: bells.sort((a, b) => b.ts - a.ts),
+    library: library.sort((a, b) => b.ts - a.ts),
+    usage: { ai: usage, totals: { agentMessages: [...agents.values()].reduce((n, a) => n + a.total, 0), reached: [...agents.values()].reduce((n, a) => n + a.reached, 0), quiet: [...agents.values()].reduce((n, a) => n + a.quiet, 0), relay: [...agents.values()].reduce((n, a) => n + a.relay, 0) } },
+  }
+  wingCache = { at: Date.now(), body }
+  return c.json(body)
+})
 
 app.get("/room/:room/events", async (c) => c.json(await room(c.req.param("room")).since(Number(c.req.query("since") ?? 0) || 0)))
 app.get("/room/:room/ask/:id", async (c) => c.json((await room(c.req.param("room")).ask(c.req.param("id"))) ?? { status: "none", decidedBy: null }))

@@ -516,8 +516,8 @@ export default function Workspace({ view: viewProp, onView: onViewProp, full = f
           </section>
 
           {page === "bell" && <BellPage ask={ask} onApprove={approve} goRoom={openRoom} live={<LiveBells goRoom={openRoom} />} />}
-          {page === "agents" && <AgentsPage speaking={speaker} open={(id) => { setPage("room"); setPinned(id); setThreadOf(null); setInsp(true); onView("canvas"); }} />}
-          {page === "library" && <LibraryPage />}
+          {page === "agents" && <AgentsPage goRoom={openRoom} speaking={speaker} open={(id) => { setPage("room"); setPinned(id); setThreadOf(null); setInsp(true); onView("canvas"); }} />}
+          {page === "library" && <LibraryPage goRoom={openRoom} />}
           {page === "settings" && <SettingsPage />}
           {page === "usage" && <UsagePage />}
 
