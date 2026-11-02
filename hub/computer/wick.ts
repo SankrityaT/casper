@@ -8,6 +8,9 @@ import { AgentRelay } from "@agent-relay/sdk";
 import { loadAgents, roomChannel } from "../relay/state";
 
 const BASE = `http://localhost:${process.env.COMPUTER_PORT ?? 8791}`;
+/** Relay and the hub are optional for the computer beat: never let a slow one block wick. */
+const within = <T>(ms: number, p: Promise<T>) =>
+  Promise.race([p, new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`timed out after ${ms}ms`)), ms))]);
 const AGENT = "wick";
 const ROOM = process.env.CASPER_DM_ROOM ?? "autopay";
 
@@ -26,9 +29,9 @@ try {
   const tokens = loadAgents();
   if (process.env.RELAY_WORKSPACE_KEY && tokens.wick) {
     const relay = new AgentRelay({ workspaceKey: process.env.RELAY_WORKSPACE_KEY });
-    const wick = await relay.workspace.reconnect({ apiToken: tokens.wick.token });
+    const wick = await within(10_000, relay.workspace.reconnect({ apiToken: tokens.wick.token }));
     relayPost = async (text) => {
-      await wick.sendMessage({ to: `#${roomChannel(ROOM)}`, text, metadata: { room: ROOM, computer: true } }).catch(() => {});
+      await within(10_000, wick.sendMessage({ to: `#${roomChannel(ROOM)}`, text, metadata: { room: ROOM, computer: true } })).catch(() => {});
     };
   }
 } catch (err) {
@@ -65,10 +68,11 @@ const findRef = (refs: Record<string, { role?: string; name?: string }>, role: s
 const HUB = (process.env.HUB_URL ?? "").replace(/\/$/, "");
 if (HUB) {
   try {
-    const events = (await (await fetch(`${HUB}/room/${ROOM}/events?since=0`)).json()) as { meta?: { tasks?: { id: string; title: string }[] } }[];
+    const events = (await (await fetch(`${HUB}/room/${ROOM}/events?since=0`, { signal: AbortSignal.timeout(10_000) })).json()) as { meta?: { tasks?: { id: string; title: string }[] } }[];
     const card = [...events].reverse().find((e) => e.meta?.tasks?.length)?.meta?.tasks?.find((t) => /launch post|clip/i.test(t.title));
     if (card) {
-      const r = await fetch(`${HUB}/room/${ROOM}/claim`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ task: card.id, agent: AGENT }) });
+      const r = await fetch(`${HUB}/room/${ROOM}/claim`, {
+        signal: AbortSignal.timeout(10_000), method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ task: card.id, agent: AGENT }) });
       console.log(`claim ${card.id} (${card.title}): ${r.status}`);
     }
   } catch (err) {
@@ -95,7 +99,14 @@ await call("act", { cmd: "fill", sel: `@${box}`, text, label: "draft" });
 await relayPost(`Drafted: "${text}" Ringing the bell before I post.`);
 
 console.log("clicking Post (rings the bell, waiting for approval)...");
-const r = await call("act", { cmd: "click", sel: `@${post}`, label: "Post" });
+let r = await call("act", { cmd: "click", sel: `@${post}`, label: "Post" });
+// The server answers 202 {pending, askId} at once; poll until a human answers the bell.
+while (r.pending) {
+  await Bun.sleep(2000);
+  const st = await call("state").catch(() => undefined);
+  const res = st?.results?.[r.askId];
+  if (res) r = res.yes ? { ok: res.ok } : { denied: true };
+}
 if (r.denied) {
   await relayPost("Post denied. Leaving the draft in the composer.");
   console.log("denied");

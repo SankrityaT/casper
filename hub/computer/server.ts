@@ -40,6 +40,7 @@ interface Computer {
   browser: Browser;
   takeover: { on: boolean; by?: string };
   pending: Map<string, Pending>;
+  results: Map<string, { yes: boolean; ok: boolean }>;
   url?: string;
 }
 
@@ -49,7 +50,7 @@ const computers = new Map<string, Computer>();
 function computer(agent: string): Computer {
   let c = computers.get(agent);
   if (!c) {
-    c = { agent, browser: new Browser(`casper-${agent}`, STREAM_PORTS[agent] ?? 9310), takeover: { on: false }, pending: new Map() };
+    c = { agent, browser: new Browser(`casper-${agent}`, STREAM_PORTS[agent] ?? 9310), takeover: { on: false }, pending: new Map(), results: new Map() };
     computers.set(agent, c);
   }
   return c;
@@ -93,19 +94,24 @@ async function act(c: Computer, body: { cmd: string; sel?: string; text?: string
         action: body.cmd,
         label,
       });
-      const yes = await new Promise<boolean>((resolve) => {
+      // Don't hold the HTTP request open while a human decides (connections time out after minutes).
+      // Answer 202 now; finish the click when the bell is answered; callers poll /state for results[askId].
+      const decided = new Promise<boolean>((resolve) => {
         c.pending.set(askId, { askId, action: body.cmd, label, resolve });
         setTimeout(() => resolve(false), ANSWER_TIMEOUT_MS);
       });
-      c.pending.delete(askId);
-      r = yes ? await b.confirm(askId) : await b.deny(askId);
-      if (!yes) return { status: 200, json: { ok: false, denied: true, askId } };
-      if (r.success)
-        await say("computer", c.agent, /post/i.test(label) ? `${c.agent} posted the launch post` : `${c.agent} did it: ${label}`, {
-          agent: c.agent,
-          askId,
-          done: label,
-        });
+      void decided.then(async (yes) => {
+        c.pending.delete(askId);
+        const done = yes ? await b.confirm(askId) : await b.deny(askId);
+        c.results.set(askId, { yes, ok: yes && done.success });
+        if (yes && done.success)
+          await say("computer", c.agent, /post/i.test(label) ? `${c.agent} posted the launch post` : `${c.agent} did it: ${label}`, {
+            agent: c.agent,
+            askId,
+            done: label,
+          });
+      });
+      return { status: 202, json: { ok: true, pending: true, askId } };
     }
   }
   return { status: r.success ? 200 : 500, json: { ok: r.success, data: r.data, error: r.error } };
@@ -174,6 +180,7 @@ const server = Bun.serve<WsData>({
         takeover: c.takeover,
         url: c.url,
         pending: [...c.pending.values()].map(({ askId, action, label }) => ({ askId, action, label })),
+        results: Object.fromEntries(c.results),
       });
     }
     if (op === "open" && req.method === "POST") {
