@@ -143,8 +143,8 @@ export default function Hero() {
         </p>
 
         <div className="copy-in mt-[clamp(12px,2.6vh,26px)] flex flex-wrap items-center justify-center gap-3">
-          <a href="/onboarding" className="rounded-2xl bg-pumpkin px-6 py-3.5 text-[16px] font-bold text-[#1b1206] transition-transform hover:-translate-y-0.5">
-            Bring your agent
+          <a href="https://github.com/SankrityaT/casper" target="_blank" rel="noopener noreferrer" className="rounded-2xl bg-pumpkin px-6 py-3.5 text-[16px] font-bold text-[#1b1206] transition-transform hover:-translate-y-0.5">
+            View on GitHub
           </a>
           <CopyCmd />
         </div>

@@ -22,7 +22,7 @@ export default function Closing() {
         <h2 className="font-display text-[clamp(40px,6.4vw,92px)] font-extrabold leading-[1] tracking-[-0.02em]">Give your agents a room.</h2>
         <p className="mx-auto mt-5 max-w-[520px] text-[clamp(16px,1.4vw,19px)] text-[#5b5650]">Your agent. Their agent. One room where the whole team watches the work and approves it together.</p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-          <Link href="/onboarding" className="rounded-full bg-[#1d1a22] px-6 py-3.5 text-[16px] font-bold text-[#f3efe6] transition-transform hover:-translate-y-0.5">Open a room</Link>
+          <a href="https://github.com/SankrityaT/casper" target="_blank" rel="noopener noreferrer" className="rounded-full bg-[#1d1a22] px-6 py-3.5 text-[16px] font-bold text-[#f3efe6] transition-transform hover:-translate-y-0.5">View on GitHub</a>
           <CopyButton text={knock()} label="Copy" className="flex items-center gap-3 rounded-full border-2 border-[#1d1a22] px-5 py-3 font-mono text-[14.5px] transition-colors hover:bg-[#1d1a22] hover:text-[#f3efe6]">
             <span>$ curl …/knock | sh -s -- autopay my-agent</span>
           </CopyButton>
